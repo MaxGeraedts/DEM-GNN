@@ -1,15 +1,21 @@
-import numpy as np
 import os
-from tqdm import tqdm
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import proj3d
-
+import numpy as np
 import torch
 from torch_geometric.data import Data
+from tqdm import tqdm
 
 # Aggregate set of simulations on the drive to a single numpy array
-def AggregateRawData(data_dir,folder):
+def AggregateRawData(data_dir:str,folder:str):
+    """Aggregate raw dataset in text files to a single numpy array
+
+    Args:
+        data_dir (str): Directory of all Matlab data 
+        folder (str): Name of dataset folder
+
+    Returns:
+        tuple[list,list,list]: aggregated start positions, agreggated simulations, aggregated boundary conditions
+    """
     folder_dir = os.path.join(data_dir,folder,"Results")                        # Directory for all simulation results
     top = []
     coor = []
@@ -63,6 +69,16 @@ def AggregateRawData(data_dir,folder):
 
 # Generate and encode virtual particles at BC intersections
 def BCEncoding(par_step,top_step,bc_step):
+    """Encode boundary position given particles, topology and boundary conditions in a timestep
+
+    Args:
+        par_step (ndarray): particle properties in timestep [Npar, [x y z]]
+        top_step (ndarray): Particle-Particle intersection topology of the graph
+        bc_step (_type_): Time step boundary condition [WallID,[x y z Nx Ny Nz dx dy dz]]
+
+    Returns:
+        tuple: [P_virtual, top_new]
+    """
     top_pw = top_step[top_step[:,1]<0,:]
     wid = (top_pw[:,1]+2)*-1                                                    # WallID converted to python index
     pid = top_pw[:,0]                                                           # Particle ID touching wall
@@ -89,6 +105,16 @@ def BCEncoding(par_step,top_step,bc_step):
 
 # Encode the Aggregated data
 def Encoding(data,top,bc):
+    """Encode aggregated data
+
+    Args:
+        data (ndarray, list): Aggregated particle data [sim,timestep,par,[x y z R E v]]
+        top (ndarray, list): List or array of simulation topologies [sim,timestep [i,j]]
+        bc (_type_): Boundary conditions [simulation[WallID,[x y z Nx Ny Nz dx dy dz]]]
+
+    Returns:
+        tuple: data_enc, top_enc
+    """
     data_enc = []
     top_enc = []
     for i, sim in enumerate(data):
@@ -124,6 +150,15 @@ def GetDataDir():
 
 # Save the aggregated and encoded dataset
 def save(dataset_name,data_enc,top_enc,data_start,bc):
+    """Saves aggregated encoded data
+
+    Args:
+        dataset_name (Array): Name of the dataset
+        data_enc (Array): Encoded aggregated data
+        top_enc (Array): Encoded aggregated topology
+        data_start (Array): Timestep t=-1
+        bc (Array): Aggregated boundary conditions
+    """
     np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Data.npy",np.array(data_enc, dtype=object),allow_pickle=True)
     np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Topology.npy",np.array(top_enc, dtype=object),allow_pickle=True)
     np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Data_start",np.array(data_start, dtype=object),allow_pickle=True)
@@ -147,10 +182,21 @@ def load(dataset_name: str):
     return data_start,data,top,bc
 
 # Create array of P-W intersections
-def WallParticleIntersection(point,bc,i,tol):
+def WallParticleIntersection(point: np.ndarray,bc: np.ndarray,i: int,tol: float):
+    """Check if a particle intersects with a wall
+
+    Args:
+        point (Array): Properties of a single particle
+        bc (Array): Boundary condition for the current timestep
+        i (Int): Particle index
+        tol (float): Topology tolerance as a multiple of particle radius
+
+    Returns:
+        list: Wall intersections
+    """
     topW = []
     for wid in range(len(bc)):
-        a = bc[wid,:3]-point[:3]                                                    # Vector A from particle P to point W on plane
+        a = bc[wid,:3]-point[:3]                                                # Vector A from particle P to point W on plane
         b = bc[wid,3:6]                                                         # Vector B: normal vector wall
         a1 = np.abs(np.sum(a*b))                                                # Vector a1(unit) : Absolute size projection A normal to wall
         if a1 - point[3] <= tol*point[3]:
@@ -159,9 +205,17 @@ def WallParticleIntersection(point,bc,i,tol):
 
 # Construct a topology from scratch
 def ConstructTopology(par_data,bc,tol):
-    topP = []
-    topW = []
-    top = []
+    """Construct a graph topology from particle info and boundary conditions
+
+    Args:
+        par_data (ndarray): Particle data
+        bc (ndarray): Boundary conditions
+        tol (float): Topology tolerance as a multiple of particle radius
+
+    Returns:
+        ndarray: Array of edge indeces describing a graph topology
+    """
+    topP, topW, top = [], [], []
     for i in range(len(par_data)):
         Xi = par_data[i,:3]
         Ri = par_data[i,3]
@@ -181,12 +235,31 @@ def ConstructTopology(par_data,bc,tol):
 
 # From list of particles and boundaries, generate model input data
 def GetEdgeIdx(top,real_idx):
+    """Get graph topology edge indeces in format required by pytorch
+
+    Args:
+        top (ndarray): Graph topology as numpy array
+        real_idx (list): list of indeces referring to real particles
+
+    Returns:
+        Tensor: Graph topology as torch tensor
+    """
     top_r=top[np.isin(top[:,1],real_idx)]
     top_v =np.flip(top,axis=1) 
     edge_index = torch.tensor(np.concatenate((top_r,top_v),axis=0),dtype=torch.long).t().contiguous()
     return edge_index 
     
-def ToPytorchData(par_data,bc,tol=0):
+def ToPytorchData(par_data,bc,tol=0.0):
+    """Get pytorch data object from particle properties and boundary conditions
+
+    Args:
+        par_data (ndarray): Particle data for timestep
+        bc (ndarray): Updated boundary conditions
+        tol (float, optional): Topology construction tolerance. Defaults to 0.
+
+    Returns:
+        Data: Pytorch data object for model input
+    """
     # Construct Topology
     top=ConstructTopology(par_data,bc,tol)
     top-=1                                                                 # Topology to python idx
