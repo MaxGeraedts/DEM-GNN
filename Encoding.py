@@ -120,7 +120,7 @@ def Encoding(data,top,bc):
     for i, sim in enumerate(data):
         data_sim = []
         top_sim = []
-        for j, step in enumerate(sim):
+        for t, step in enumerate(sim):
 
             # Pad real particles with zeros and add binary classifier
             P_real = np.concatenate((step,
@@ -130,8 +130,8 @@ def Encoding(data,top,bc):
             
             # Add Virtual particles to encode BC's
             bc_step = np.copy(bc[i])
-            bc_step[:,:3] = bc[i][:,:3]+(j+2)*bc[i][:,-3:]                      # Update BC's
-            P_virtual, top_new = BCEncoding(P_real[:,:3],top[i][j],bc_step)     # Virtual particle coordinates & Updated topology indexing
+            bc_step[:,:3] = bc[i][:,:3]+(t+2)*bc[i][:,-3:]                      # Update BC's
+            P_virtual, top_new = BCEncoding(P_real[:,:3],top[i][t],bc_step)     # Virtual particle coordinates & Updated topology indexing
             
             data_sim.append(np.concatenate((P_real,P_virtual),axis=0))
             top_sim.append(top_new)
@@ -283,5 +283,6 @@ def ToPytorchData(par_data,bc,tol=0.0):
 if __name__ == "__main__":
     dataset_name = "2Sphere"
     data_start,data_agr,top_agr,bc = AggregateRawData(GetDataDir(),dataset_name)
+    save("2Sphere",data_start,top_agr,data_start,bc)
     data_enc, top_enc = Encoding(data_agr,top_agr,bc)
-    save("2Sphere",data_enc,top_enc,data_start,bc)
+    
