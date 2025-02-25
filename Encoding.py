@@ -104,6 +104,16 @@ def BCEncoding(par_step,top_step,bc_step):
     return P_virtual, top_new
 
 # Encode the Aggregated data
+def EncodeNodes(par_t,top_t,bc_t):
+    # Pad real particles with zeros and add binary classifier
+    P_real = np.concatenate((par_t,
+                             np.zeros((par_t.shape[0],3)),               # Zeros for normal vector features
+                             np.ones((par_t.shape[0],1))),               # Ones as real particle binary classifier
+                             axis=1)
+    P_virtual, top_new = BCEncoding(P_real[:,:3],top_t,bc_t)              # Virtual particle coordinates & Updated topology indexing
+    par_enc = np.concatenate((P_real,P_virtual),axis=0)
+    return par_enc,top_new
+
 def Encoding(data,top,bc):
     """Encode aggregated data
 
@@ -121,20 +131,14 @@ def Encoding(data,top,bc):
         data_sim = []
         top_sim = []
         for t, step in enumerate(sim):
-
-            # Pad real particles with zeros and add binary classifier
-            P_real = np.concatenate((step,
-                                     np.zeros((step.shape[0],3)),               # Zeros for normal vector features
-                                     np.ones((step.shape[0],1))),               # Ones as real particle binary classifier
-                                     axis=1)
-            
-            # Add Virtual particles to encode BC's
+            # Update BC's
             bc_step = np.copy(bc[i])
-            bc_step[:,:3] = bc[i][:,:3]+(t+2)*bc[i][:,-3:]                      # Update BC's
-            P_virtual, top_new = BCEncoding(P_real[:,:3],top[i][t],bc_step)     # Virtual particle coordinates & Updated topology indexing
+            bc_step[:,:3] = bc[i][:,:3]+(t+2)*bc[i][:,-3:]        
+            # Add Virtual particles to encode BC's           
+            par_enc,top_new = EncodeNodes(step,top[i][t],bc_step)
             
-            data_sim.append(np.concatenate((P_real,P_virtual),axis=0))
-            top_sim.append(top_new)
+            data_sim.append(np.asarray(par_enc,dtype=float))
+            top_sim.append(np.asarray(top_new,dtype=float))
         data_enc.append(data_sim)  
         top_enc.append(top_sim)  
     return data_enc, top_enc
