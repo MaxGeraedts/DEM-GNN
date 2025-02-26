@@ -59,7 +59,7 @@ def PlotGraph(data,limits=None,manual_axes=False,plot_lines=True):
     legend_without_duplicate_labels(ax)
     plt.show()
 
-def PlotXYZ(bc_rollout,real_rollout,ML_rollout,dim,ax):
+def PlotAxes(bc_rollout,real_rollout,ML_rollout,dim,ax):
     r = real_rollout[0][0,3]
     real = []
     for particles in real_rollout:
@@ -68,9 +68,28 @@ def PlotXYZ(bc_rollout,real_rollout,ML_rollout,dim,ax):
     coorstr = ['X','Y','Z']
     ax.plot(bc_rollout[:,dim,dim]/r,'black')
     ax.plot(bc_rollout[:,dim+3,dim]/r,'black',label='Wall')
-    ax.plot(real[:,0]/r, 'red', label='DEM Prediction')
-    ax.plot(real[:,1]/r, 'blue')
+    ax.plot(real_rollout[:,0,dim]/r, 'red', label='DEM Prediction')
+    ax.plot(real_rollout[:,1,dim]/r, 'blue')
     ax.plot(ML_rollout[:,0,dim]/r, 'red', linestyle='dashed', label='ML Prediction')
     ax.plot(ML_rollout[:,1,dim]/r, 'blue', linestyle='dashed')
     ax.set(xlabel='Timestep',ylabel=f'{coorstr[dim]} Coordinate (R normalized)')
     ax.set_title(f'{coorstr[dim]} Coordinate')
+
+def DataListToPositionArray(Rollout,datalist):
+    real_pos = np.zeros((Rollout.timesteps,2,3))
+    real_data = np.zeros((Rollout.timesteps,2,7))
+    for t,data in enumerate(datalist):
+        real_pos[t] = data.pos[data.mask]
+        real_data[t] = data.x[data.mask]
+    data_array = np.concatenate((real_pos,real_data),axis=2)
+    return data_array
+
+def PlotXYZ(Rollouts,t_max):
+    fig, axes = plt.subplots(1,3,sharey=True)
+    fig.set_figwidth(19)
+    ML_data_array = DataListToPositionArray(Rollouts,Rollouts.ML_rollout)
+    DEM_data_array = DataListToPositionArray(Rollouts,Rollouts.GroundTruth)
+    for i, ax in enumerate(axes):   
+        PlotAxes(Rollouts.BC_rollout,
+                DEM_data_array[:min(100,t_max)],ML_data_array[:t_max], i,ax)
+        ax.set_xlim(xmin=0,xmax=t_max)
