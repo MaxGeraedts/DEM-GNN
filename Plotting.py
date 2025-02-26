@@ -8,7 +8,7 @@ def legend_without_duplicate_labels(ax):
     ax.legend(*zip(*unique))
 
 # Given encoded data plot graph
-def PlotGraph(data,limits,manual_axes=False,plot_lines=True):
+def PlotGraph(data,limits=None,manual_axes=False,plot_lines=True):
     fig = plt.figure(figsize=(6, 20))
     ax = fig.add_subplot(111, projection='3d')
     # For every contact in topology plot line

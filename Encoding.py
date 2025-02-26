@@ -105,6 +105,16 @@ def BCEncoding(par_step,top_step,bc_step):
 
 # Encode the Aggregated data
 def EncodeNodes(par_t,top_t,bc_t):
+    """Encode real particles, Encode boundary conditions as virtual particles, return all encoded particles and updated graph topology
+
+    Args:
+        par_t (ndarray): Particle data for timestep
+        top_t (ndarray): Topology for timestep
+        bc_t (ndarray): Boundary condition for timestep
+
+    Returns:
+        tuple: EncodedParticles, UpdatedTopology
+    """
     # Pad real particles with zeros and add binary classifier
     P_real = np.concatenate((par_t,
                              np.zeros((par_t.shape[0],3)),               # Zeros for normal vector features
@@ -112,7 +122,7 @@ def EncodeNodes(par_t,top_t,bc_t):
                              axis=1)
     P_virtual, top_new = BCEncoding(P_real[:,:3],top_t,bc_t)              # Virtual particle coordinates & Updated topology indexing
     par_enc = np.concatenate((P_real,P_virtual),axis=0)
-    return par_enc,top_new
+    return par_enc.astype(float),top_new
 
 def Encoding(data,top,bc):
     """Encode aggregated data
@@ -179,11 +189,11 @@ def load(dataset_name: str):
     Returns:
         Tuple: [data_start, data, top , bc]
     """
-    data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data.npy",allow_pickle=True)
+    data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data.npy",allow_pickle=True).astype(float)
     top = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Topology.npy",allow_pickle=True)
-    data_start = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data_start.npy",allow_pickle=True)
+    #data_start = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data_start.npy",allow_pickle=True).astype(float)
     bc = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_BC.npy",allow_pickle=True)
-    return data_start,data,top,bc
+    return np.array(data,dtype=float),top,np.array(bc,dtype=float)
 
 # Create array of P-W intersections
 def WallParticleIntersection(point: np.ndarray,bc: np.ndarray,i: int,tol: float):
@@ -217,7 +227,7 @@ def ConstructTopology(par_data,bc,tol):
         tol (float): Topology tolerance as a multiple of particle radius
 
     Returns:
-        ndarray: Array of edge indeces describing a graph topology
+        ndarray: Array of edge indeces describing a graph topology (MatlabIDX)
     """
     topP, topW, top = [], [], []
     for i in range(len(par_data)):
@@ -242,7 +252,7 @@ def GetEdgeIdx(top,real_idx):
     """Get graph topology edge indeces in format required by pytorch
 
     Args:
-        top (ndarray): Graph topology as numpy array
+        top (ndarray): Encoded graph topology as numpy array
         real_idx (list): list of indeces referring to real particles
 
     Returns:
@@ -253,7 +263,7 @@ def GetEdgeIdx(top,real_idx):
     edge_index = torch.tensor(np.concatenate((top_r,top_v),axis=0),dtype=torch.long).t().contiguous()
     return edge_index 
     
-def ToPytorchData(par_data,bc,tol=0.0):
+def ToPytorchData(par_data,bc,tol=0.0,topology=None):
     """Get pytorch data object from particle properties and boundary conditions
 
     Args:
@@ -264,25 +274,17 @@ def ToPytorchData(par_data,bc,tol=0.0):
     Returns:
         Data: Pytorch data object for model input
     """
-    # Construct Topology
-    top=ConstructTopology(par_data,bc,tol)
-    top-=1                                                                 # Topology to python idx
-    # Add virutal particles and fix topology index
-    P_virtual, top_enc = BCEncoding(par_data[:,:3],top,bc)                 
-    P_real = np.concatenate((par_data,
-                            np.zeros((par_data.shape[0],3)),               # Zeros for normal vector features
-                            np.ones((par_data.shape[0],1))),               # Ones as real particle binary classifier
-                            axis=1)
-    par_enc = np.concatenate((P_real,P_virtual),axis=0).astype(float)
-    
-    #Convert encoded data to PyTorch Data object
-    real_idx = par_enc[:,-1:].squeeze().nonzero()
-    maskx = np.squeeze(par_enc[:,-1:]==1)
-    x = torch.tensor(par_enc,dtype=torch.float)
-    edge_index = GetEdgeIdx(top_enc,real_idx) 
+    if topology is None:
+        topology = ConstructTopology(par_data,bc,tol)-1
+    EncodedParticles, EncodedTopology = EncodeNodes(par_data,topology,bc)
 
-    data = Data(pos=x[:,:3],x=x[:,3:],edge_index=edge_index,mask=maskx)
-    return data
+    real_idx = EncodedParticles[:,-1:].squeeze().nonzero()
+    RealParticleMask = np.squeeze(EncodedParticles[:,-1:]==1)
+    TorchData = torch.tensor(EncodedParticles,dtype=torch.float)
+    TorchTopology = GetEdgeIdx(EncodedTopology,real_idx)    
+
+    data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask)
+    return data, topology
 
 if __name__ == "__main__":
     dataset_name = "2Sphere"
