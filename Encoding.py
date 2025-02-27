@@ -189,11 +189,11 @@ def load(dataset_name: str):
     Returns:
         Tuple: [data_start, data, top , bc]
     """
-    data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data.npy",allow_pickle=True).astype(float)
+    data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data.npy",allow_pickle=True)
     top = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Topology.npy",allow_pickle=True)
     #data_start = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data_start.npy",allow_pickle=True).astype(float)
     bc = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_BC.npy",allow_pickle=True)
-    return np.array(data,dtype=float),top,np.array(bc,dtype=float)
+    return data, top ,bc
 
 # Create array of P-W intersections
 def WallParticleIntersection(point: np.ndarray,bc: np.ndarray,i: int,tol: float):
@@ -285,6 +285,14 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None):
 
     data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask)
     return data, topology
+
+def GetLength(listorarray):
+    if type(listorarray) == list:
+        length = len(listorarray)
+    if type(listorarray) == np.ndarray:
+        length = listorarray.shape[0]
+    return length
+
 
 if __name__ == "__main__":
     dataset_name = "2Sphere"
