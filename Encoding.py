@@ -14,7 +14,7 @@ def AggregateRawData(data_dir:str,folder:str):
         folder (str): Name of dataset folder
 
     Returns:
-        tuple[list,list,list]: aggregated start positions, agreggated simulations, aggregated boundary conditions
+        tuple[list,list,list]: agreggated simulations, aggregated topology ,aggregated boundary conditions
     """
     folder_dir = os.path.join(data_dir,folder,"Results")                        # Directory for all simulation results
     top = []
@@ -65,7 +65,7 @@ def AggregateRawData(data_dir:str,folder:str):
         
         # Aggregate Boundary conditions
         bc.append(np.genfromtxt(os.path.join(sim_dir,"BC.csv"),delimiter=","))  # Boundary conditions [simulation[WallID,[x y z Nx Ny Nz dx dy dz]]]
-    return data_start,data,top,bc
+    return data,top,bc
 
 # Generate and encode virtual particles at BC intersections
 def BCEncoding(par_step,top_step,bc_step):
@@ -115,6 +115,7 @@ def EncodeNodes(par_t,top_t,bc_t):
     Returns:
         tuple: EncodedParticles, UpdatedTopology
     """
+    print(par_t.shape)
     # Pad real particles with zeros and add binary classifier
     P_real = np.concatenate((par_t,
                              np.zeros((par_t.shape[0],3)),               # Zeros for normal vector features
@@ -163,7 +164,7 @@ def GetDataDir():
     return data_dir
 
 # Save the aggregated and encoded dataset
-def save(dataset_name,data_enc,top_enc,data_start,bc):
+def save(dataset_name,data_agr,top_agr,bc):
     """Saves aggregated encoded data
 
     Args:
@@ -173,9 +174,9 @@ def save(dataset_name,data_enc,top_enc,data_start,bc):
         data_start (Array): Timestep t=-1
         bc (Array): Aggregated boundary conditions
     """
-    np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Data.npy",np.array(data_enc, dtype=object),allow_pickle=True)
-    np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Topology.npy",np.array(top_enc, dtype=object),allow_pickle=True)
-    np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Data_start",np.array(data_start, dtype=object),allow_pickle=True)
+    np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Data.npy",np.array(data_agr, dtype=object),allow_pickle=True)
+    np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Topology.npy",np.array(top_agr, dtype=object),allow_pickle=True)
+    #np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Data_start",np.array(data_start, dtype=object),allow_pickle=True)
     np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_BC",np.array(bc, dtype=object),allow_pickle=True)
     
 # Load an aggregated and encoded dataset 
@@ -189,11 +190,11 @@ def load(dataset_name: str):
     Returns:
         Tuple: [data_start, data, top , bc]
     """
-    data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data.npy",allow_pickle=True).astype(float)
+    data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data.npy",allow_pickle=True)
     top = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Topology.npy",allow_pickle=True)
     #data_start = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data_start.npy",allow_pickle=True).astype(float)
     bc = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_BC.npy",allow_pickle=True)
-    return np.array(data,dtype=float),top,np.array(bc,dtype=float)
+    return data,top,bc
 
 # Create array of P-W intersections
 def WallParticleIntersection(point: np.ndarray,bc: np.ndarray,i: int,tol: float):
@@ -288,7 +289,7 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None):
 
 if __name__ == "__main__":
     dataset_name = "2Sphere"
-    data_start,data_agr,top_agr,bc = AggregateRawData(GetDataDir(),dataset_name)
-    save("2Sphere",data_start,top_agr,data_start,bc)
-    data_enc, top_enc = Encoding(data_agr,top_agr,bc)
+    ArgsAggregation = AggregateRawData(GetDataDir(),dataset_name)
+    save("2Sphere",*ArgsAggregation)
+    #data_enc, top_enc = Encoding(*ArgsAggregation)
     
