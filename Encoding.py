@@ -115,7 +115,6 @@ def EncodeNodes(par_t,top_t,bc_t):
     Returns:
         tuple: EncodedParticles, UpdatedTopology
     """
-    print(par_t.shape)
     # Pad real particles with zeros and add binary classifier
     P_real = np.concatenate((par_t,
                              np.zeros((par_t.shape[0],3)),               # Zeros for normal vector features
@@ -283,8 +282,9 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None):
     RealParticleMask = np.squeeze(EncodedParticles[:,-1:]==1)
     TorchData = torch.tensor(EncodedParticles,dtype=torch.float)
     TorchTopology = GetEdgeIdx(EncodedTopology,real_idx)    
-
-    data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask)
+    edge_mask = np.all(np.isin(TorchTopology, real_idx),axis=0)
+    
+    data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask,edge_mask=edge_mask)
     return data, topology
 
 def GetLength(listorarray):
