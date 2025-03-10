@@ -119,6 +119,7 @@ def GetContactPerParticle(data,contactpoints):
     Numpar = data.x[data.mask].shape[0]
     ParContactPoints = [[] for i in range(Numpar)]
     ParContactNormals = [[] for i in range(Numpar)]
+    
     for i,par_i in enumerate(data.edge_index[1,:]):
         par_i = int(par_i)
         ParContactPoints[par_i].append(contactpoints[i])
@@ -139,7 +140,7 @@ def DeformedParticleMesh(radius,center,contactpoints,contactnormals,resolution=1
         sphere.points = transformedpoints
     return sphere
 
-def RenderParticles(data):
+def ParticleMesh(data):
     geom = []
     contactpoints = GetAllContactpoints(data)
     ParContactPoints, ParContactNormals = GetContactPerParticle(data,contactpoints)
@@ -148,5 +149,4 @@ def RenderParticles(data):
         center = np.array(data.pos[data.mask][i])
         sphere = DeformedParticleMesh(radius,center,ParContactPoints[i],ParContactNormals[i])
         geom.append(sphere)
-        geom = pv.merge(geom)
     return geom
