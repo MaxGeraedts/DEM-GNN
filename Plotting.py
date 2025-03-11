@@ -2,25 +2,39 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import pyvista as pv
+import os 
+from tqdm import tqdm, trange
 
+def PlotBoundaryBox(BC,ax,colour,linestyle,linewidth=1):
+    maxdim = GetVolumeAndExtremeDims(BC)[1]
+    mesh = np.array(np.meshgrid(maxdim[0],maxdim[1],maxdim[2])).T.reshape(-1,3)
+    plotx, ploty, plotz = [mesh[:,dim] for dim in [0,1,2]]
+    verteces = [[0,1],[0,2],[2,3],[3,1]]
+    verteces += [[i,i+4] for i in range(4)]
+    verteces += [[4,5],[6,7],[4,6],[5,7]]
+    for vertex in verteces:
+        ax.plot(plotx[vertex],ploty[vertex],plotz[vertex],c=colour,linewidth=linewidth,linestyle=linestyle)
 ## Plotting the topology as a graph
 
 # Remove legend duplicates
 def legend_without_duplicate_labels(ax):
     handles, labels = ax.get_legend_handles_labels()
     unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
-    ax.legend(*zip(*unique))
+    ax.legend(*zip(*unique),loc='lower right')
+
 
 # Given encoded data plot graph
-def PlotGraph(data,limits=None,manual_axes=False,plot_lines=True):
-    fig = plt.figure(figsize=(6, 20))
-    ax = fig.add_subplot(111, projection='3d')
+def PlotGraph(ax, data,limits=None,manual_axes=False,plot_lines=True,normalize=False):
     # For every contact in topology plot line
     if plot_lines == True:
         for line_idx in data.edge_index.T:
 
             # Define radius for normalized x y z coordinates
-            radius = data.x[0,0]   
+            if normalize == True:
+                radius = data.x[0,0]
+            else:
+                radius=1
+
             #radius = 1                                                     
             plotx, ploty, plotz = [data.pos[line_idx][:,i]/radius for i in [0,1,2]]
 
@@ -46,6 +60,7 @@ def PlotGraph(data,limits=None,manual_axes=False,plot_lines=True):
 
         # Define radius for normalized x y z coordinates
         if node[0] != 0: radius = node[0]
+        if normalize == False: radius=1
         plotx, ploty, plotz = [pos[i]/radius for i in [0,1,2]]
         ax.scatter(plotx,ploty,plotz,color=clr,label=lbl)
     
@@ -58,9 +73,21 @@ def PlotGraph(data,limits=None,manual_axes=False,plot_lines=True):
         #ax.set_zticks(np.arange(-2,2.1))
         ax.set_zlim(limits[2])
     ax.set(xlabel='X',ylabel="Y",zlabel="Z")
-    ax.legend(loc='upper right')
     ax.set_aspect('equal')
-    legend_without_duplicate_labels(ax)
+
+def PlotGraphComparison(t,Rollout,sample_idx,tol):
+    fig, axes = plt.subplots(1,2, subplot_kw={'projection': '3d'},figsize=(20,10))
+    PlotGraph(axes[0],Rollout.GroundTruth[t], plot_lines=True)
+    PlotGraph(axes[1],Rollout.ML_rollout[t], plot_lines=True)
+    axes[0].set_title("Ground-truth",fontsize=20,fontname="Times New Roman")
+    axes[1].set_title("Model",fontsize=20,fontname="Times New Roman")
+    axes[1].legend(loc='lower right')
+    legend_without_duplicate_labels(axes[1])
+    fig.text(0.4,1,f"Performance Comparison",fontsize=25,fontname="Times New Roman",fontweight="bold")
+    fig.suptitle(f"Sample: {sample_idx}, Time: {t}, Tolerance: {tol}",fontsize=20,fontname="Times New Roman")
+    for ax in axes:
+        PlotBoundaryBox(Rollout.BC_rollout[0],ax,"dimgrey","--",2)
+        PlotBoundaryBox(Rollout.BC_rollout[t],ax,"black","-",2)
     plt.show()
 
 ## Plot two particles system
@@ -125,29 +152,31 @@ def GetContactPerParticle(data,contactpoints):
         ParContactPoints[par_i].append(contactpoints[i])
         normal_temp = contactpoints[i]-data.pos[par_i]
         ParContactNormals[par_i].append(normal_temp/np.linalg.norm(normal_temp))
-    ParContactPoints = [np.array(ParContactPoints[i]) for i in range(len(ParContactPoints))]    
+    ParContactPoints = [np.array(ParContactPoints[i]) for i in range(len(ParContactPoints))]
+    ParContactNormals = [np.array(ParContactNormals[i]) for i in range(len(ParContactNormals))]  
     return ParContactPoints, ParContactNormals
 
-def DeformedParticleMesh(radius,center,contactpoints,contactnormals,resolution=100):
+def DeformedParticleMesh(radius,center,contactpoints,contactnormals,deformation=True,resolution=100):
     sphere = pv.Sphere(radius,center,theta_resolution=resolution,phi_resolution=resolution)
-    for contactpoint,contactnormal in zip(contactpoints,contactnormals):
+    if deformation == True:
+        for contactpoint,contactnormal in zip(contactpoints,contactnormals):
 
-        contactpoint=np.expand_dims(contactpoint,0)-center
-        contactnormal=np.expand_dims(contactnormal,0)
+            contactpoint=np.expand_dims(contactpoint,0)-center
+            contactnormal=np.expand_dims(contactnormal,0)
 
-        projection = np.inner(np.array(sphere.points-center)-contactpoint,contactnormal)
-        transformedpoints = np.where(projection>0,sphere.points-projection*contactnormal,sphere.points)
-        sphere.points = transformedpoints
+            projection = np.inner(np.array(sphere.points-center)-contactpoint,contactnormal)
+            transformedpoints = np.where(projection>0,sphere.points-projection*contactnormal,sphere.points)
+            sphere.points = transformedpoints
     return sphere
 
-def ParticleMesh(data):
+def ParticleMesh(data,deformation):
     geom = []
     contactpoints = GetAllContactpoints(data)
     ParContactPoints, ParContactNormals = GetContactPerParticle(data,contactpoints)
     for i in range(len(ParContactPoints)):
         radius = data.x[data.mask][i][0].item()
         center = np.array(data.pos[data.mask][i])
-        sphere = DeformedParticleMesh(radius,center,ParContactPoints[i],ParContactNormals[i])
+        sphere = DeformedParticleMesh(radius,center,ParContactPoints[i],ParContactNormals[i],deformation)
         geom.append(sphere)
     return geom
 
@@ -225,7 +254,7 @@ def GetContactForce(data):
     Fij = Fij_size*contactnormal
     return Fij.T
 
-def GetVolume(BC):
+def GetVolumeAndExtremeDims(BC):
     """Given a boundary condition array at time t, calculate volume
 
     Args:
@@ -234,11 +263,12 @@ def GetVolume(BC):
     Returns:
         float: Boundary volume
     """
-    xmax, xmin = BC[0,0], BC[3,0]
-    ymax, ymin = BC[1,1], BC[4,1]
-    zmax, zmin = BC[2,2], BC[5,2]
+    xmax, xmin = BC.item(0,0), BC.item(3,0)
+    ymax, ymin = BC.item(1,1), BC.item(4,1)
+    zmax, zmin = BC.item(2,2), BC.item(5,2)
+    maxdim = np.array([[xmin,xmax],[ymin,ymax],[zmin,zmax]])
     vol = (xmax-xmin)*(ymax-ymin)*(zmax-zmin)
-    return vol
+    return vol,maxdim
 
 def GetStressTensor(data,BC):
     """Calculate Internal stress tensor for one timestep
@@ -254,7 +284,7 @@ def GetStressTensor(data,BC):
     contactvector = contactpoints - data.pos[data.edge_index[1,:]]
     contactforce = GetContactForce(data)
     stress_tensor = torch.zeros((3,3))
-    vol = GetVolume(BC)
+    vol = GetVolumeAndExtremeDims(BC)[0]
     for contact in range(contactforce.shape[0]):
         Fij = contactforce[contact].reshape(3,1)
         Lij = contactvector[contact].reshape(1,3)
@@ -290,4 +320,30 @@ def PlotContactVectorAndForce(data,BC):
     for ax in axs: AxesLimits(ax,BC)
     return fig,axs
 
-## tESTING FUNCTION: REMOVE LATER
+def PlotMeshNormals(data):
+    contactpoints = GetAllContactpoints(data)
+    ParContactPoints, ParContactNormals = GetContactPerParticle(data,contactpoints)
+
+    fig, ax = plt.subplots(1,1, subplot_kw={'projection': '3d'})
+    for i, (parcontactpoint, parcontactnormal) in enumerate(zip(ParContactPoints,ParContactNormals)):
+        
+        plotx, ploty, plotz = [parcontactpoint.reshape((-1,3))[:,dim] for dim in [0,1,2]]
+        parcontactnormal.shape
+        Plot3DVectors(ax,data.pos[i,:].resize(1,3),parcontactnormal.reshape((-1,3))/5)
+    fig.set_figheight(50)
+    fig.set_figwidth(50)
+
+def MakeGIF(datalist,gifname,fps=7,color='lightblue'):
+    plotter = pv.Plotter(notebook=False, off_screen=True)
+    spheremesh = pv.merge(ParticleMesh(datalist[0],deformation=False))
+    plotter.add_mesh(spheremesh, color=color, show_edges=False)
+
+    plotter.open_gif(f"{os.getcwd()}\\Figures\\{gifname}.gif",fps=fps)
+
+    for data in tqdm(datalist):
+        spheremesh.points = pv.merge(ParticleMesh(data,deformation=False)).points
+        plotter.write_frame()
+
+    plotter.close()
+
+
