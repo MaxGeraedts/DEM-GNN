@@ -152,19 +152,18 @@ def ParticleMesh(data):
     return geom
 
 ## Plot Vectors
-def Plot3DVectors(origin,direction,BC):
-    from mpl_toolkits.mplot3d import Axes3D
-    X,Y,Z = [origin[:,i] for i in [0,1,2]]
-    U, V, W = [direction[:,i] for i in [0,1,2]]
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.quiver(X, Y, Z, U, V, W)
+def AxesLimits(ax,BC):
     ax.set_xlim([BC[3,0], BC[0,0]])
     ax.set_ylim([BC[4,1], BC[1,1]])
     ax.set_zlim([BC[5,2], BC[2,2]])
     ax.set_aspect('equal')
-    plt.show()
+
+def Plot3DVectors(ax,origin,direction,BC):
+    from mpl_toolkits.mplot3d import Axes3D
+    X,Y,Z = [origin[:,i] for i in [0,1,2]]
+    U, V, W = [direction[:,i] for i in [0,1,2]]
+    ax.quiver(X, Y, Z, U, V, W)
+    return ax
 
 # Evaluation Visualization
 ## Get Stress Tensor
@@ -252,7 +251,7 @@ def GetStressTensor(data,BC):
         array: 3x3 Gauchy stress tensor
     """
     contactpoints = GetAllContactpoints(data)
-    contactvector = contactpoints[data.edge_index[0,:]] - data.pos[data.edge_index[1,:]]
+    contactvector = contactpoints - data.pos[data.edge_index[1,:]]
     contactforce = GetContactForce(data)
     stress_tensor = torch.zeros((3,3))
     vol = GetVolume(BC)
@@ -279,9 +278,32 @@ def GetInternalStressRollout(Rollout):
         stress_evo[t] = GetStressTensor(data,BC)
     return stress_evo
 
+## Plot Intermediate vectors
 def PlotContactVectorAndForce(data,BC):
+    fig, axs = plt.subplots(1,2, subplot_kw={'projection': '3d'})
+
     contactforce = GetContactForce(data)
     contactpoints = GetAllContactpoints(data)
-    contactvector = contactpoints[data.edge_index[0,:]] - data.pos[data.edge_index[1,:]]
-    Plot3DVectors(data.pos[data.edge_index[1,:]],contactvector[data.edge_index[0,:]],BC)
-    Plot3DVectors(contactpoints,(contactforce/torch.max(contactforce))/4,BC)
+    contactvector = contactpoints - data.pos[data.edge_index[1,:]]
+    Plot3DVectors(axs[0],data.pos[data.edge_index[1,:]],contactvector,BC)
+    Plot3DVectors(axs[1], contactpoints,(contactforce/torch.max(contactforce))/4,BC)
+    for ax in axs: AxesLimits(ax,BC)
+    return fig,axs
+
+## tESTING FUNCTION: REMOVE LATER
+step = 5
+for i in range(0,5,step):
+    fig, ax = plt.subplots(1,1, subplot_kw={'projection': '3d'})
+    Plot3DVectors(ax,data.pos[data.edge_index[1,i:i+step]],contactvector[data.edge_index[0,i:i+step]],BC)
+    plotx, ploty, plotz = [data.pos[data.edge_index[1,i:i+step],dim] for dim in [0,1,2]]
+    ax.scatter(plotx,ploty,plotz,c='r')
+
+    plotx, ploty, plotz = [data.pos[data.edge_index[0,i:i+step],dim] for dim in [0,1,2]]
+    ax.scatter(plotx,ploty,plotz,c='g')
+
+    plotx, ploty, plotz = [contactpoints[i:i+step,dim] for dim in [0,1,2]]
+    ax.scatter(plotx,ploty,plotz,c='lime')
+
+    #ax = AxesLimits(ax,BC)
+    print(f"{data.edge_index[:,i:i+step]}")
+    plt.show()
