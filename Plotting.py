@@ -158,7 +158,7 @@ def AxesLimits(ax,BC):
     ax.set_zlim([BC[5,2], BC[2,2]])
     ax.set_aspect('equal')
 
-def Plot3DVectors(ax,origin,direction,BC):
+def Plot3DVectors(ax,origin,direction):
     from mpl_toolkits.mplot3d import Axes3D
     X,Y,Z = [origin[:,i] for i in [0,1,2]]
     U, V, W = [direction[:,i] for i in [0,1,2]]
@@ -285,25 +285,9 @@ def PlotContactVectorAndForce(data,BC):
     contactforce = GetContactForce(data)
     contactpoints = GetAllContactpoints(data)
     contactvector = contactpoints - data.pos[data.edge_index[1,:]]
-    Plot3DVectors(axs[0],data.pos[data.edge_index[1,:]],contactvector,BC)
-    Plot3DVectors(axs[1], contactpoints,(contactforce/torch.max(contactforce))/4,BC)
+    Plot3DVectors(axs[0],data.pos[data.edge_index[1,:]],contactvector)
+    Plot3DVectors(axs[1], contactpoints,(contactforce/torch.max(contactforce))/4)
     for ax in axs: AxesLimits(ax,BC)
     return fig,axs
 
 ## tESTING FUNCTION: REMOVE LATER
-step = 5
-for i in range(0,5,step):
-    fig, ax = plt.subplots(1,1, subplot_kw={'projection': '3d'})
-    Plot3DVectors(ax,data.pos[data.edge_index[1,i:i+step]],contactvector[data.edge_index[0,i:i+step]],BC)
-    plotx, ploty, plotz = [data.pos[data.edge_index[1,i:i+step],dim] for dim in [0,1,2]]
-    ax.scatter(plotx,ploty,plotz,c='r')
-
-    plotx, ploty, plotz = [data.pos[data.edge_index[0,i:i+step],dim] for dim in [0,1,2]]
-    ax.scatter(plotx,ploty,plotz,c='g')
-
-    plotx, ploty, plotz = [contactpoints[i:i+step,dim] for dim in [0,1,2]]
-    ax.scatter(plotx,ploty,plotz,c='lime')
-
-    #ax = AxesLimits(ax,BC)
-    print(f"{data.edge_index[:,i:i+step]}")
-    plt.show()
