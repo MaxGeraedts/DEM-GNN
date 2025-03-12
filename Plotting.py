@@ -75,20 +75,21 @@ def PlotGraph(ax, data,limits=None,manual_axes=False,plot_lines=True,normalize=F
     ax.set(xlabel='X',ylabel="Y",zlabel="Z")
     ax.set_aspect('equal')
 
-def PlotGraphComparison(t,Rollout,sample_idx,tol):
+def PlotGraphComparison(t,Rollout,sample_idx,tol,plot_lines=True):
     fig, axes = plt.subplots(1,2, subplot_kw={'projection': '3d'},figsize=(20,10))
-    PlotGraph(axes[0],Rollout.GroundTruth[t], plot_lines=True)
-    PlotGraph(axes[1],Rollout.ML_rollout[t], plot_lines=True)
+    PlotGraph(axes[0],Rollout.GroundTruth[t], plot_lines=plot_lines)
+    PlotGraph(axes[1],Rollout.ML_rollout[t], plot_lines=plot_lines)
     axes[0].set_title("Ground-truth",fontsize=20,fontname="Times New Roman")
     axes[1].set_title("Model",fontsize=20,fontname="Times New Roman")
     axes[1].legend(loc='lower right')
     legend_without_duplicate_labels(axes[1])
-    fig.text(0.4,1,f"Performance Comparison",fontsize=25,fontname="Times New Roman",fontweight="bold")
+    fig.text(0.4,1,f"Graph Comparison",fontsize=25,fontname="Times New Roman",fontweight="bold")
     fig.suptitle(f"Sample: {sample_idx}, Time: {t}, Tolerance: {tol}",fontsize=20,fontname="Times New Roman")
     for ax in axes:
         PlotBoundaryBox(Rollout.BC_rollout[0],ax,"dimgrey","--",2)
         PlotBoundaryBox(Rollout.BC_rollout[t],ax,"black","-",2)
-    plt.show()
+    
+    return fig
 
 ## Plot two particles system
 
@@ -333,15 +334,15 @@ def PlotMeshNormals(data):
     fig.set_figheight(50)
     fig.set_figwidth(50)
 
-def MakeGIF(datalist,gifname,fps=7,color='lightblue'):
+def MakeGIF(datalist,gifname,fps=7,color='lightblue',deformation=False):
     plotter = pv.Plotter(notebook=False, off_screen=True)
-    spheremesh = pv.merge(ParticleMesh(datalist[0],deformation=False))
+    spheremesh = pv.merge(ParticleMesh(datalist[0],deformation=deformation))
     plotter.add_mesh(spheremesh, color=color, show_edges=False)
 
     plotter.open_gif(f"{os.getcwd()}\\Figures\\{gifname}.gif",fps=fps)
 
     for data in tqdm(datalist):
-        spheremesh.points = pv.merge(ParticleMesh(data,deformation=False)).points
+        spheremesh.points = pv.merge(ParticleMesh(data,deformation=deformation)).points
         plotter.write_frame()
 
     plotter.close()
