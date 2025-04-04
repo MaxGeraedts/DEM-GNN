@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch_geometric.data import Data
 from tqdm import tqdm
+import torch_geometric.transforms as T
 
 # Aggregate set of simulations on the drive to a single numpy array
 def AggregateRawData(data_dir:str,folder:str):
@@ -263,7 +264,7 @@ def GetEdgeIdx(top,real_idx):
     edge_index = torch.tensor(np.concatenate((top_r,top_v),axis=0),dtype=torch.long).t().contiguous()
     return edge_index 
     
-def ToPytorchData(par_data,bc,tol=0.0,topology=None):
+def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None):
     """Get pytorch data object from particle properties and boundary conditions
 
     Args:
@@ -276,6 +277,7 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None):
     """
     if topology is None:
         topology = ConstructTopology(par_data,bc,tol)-1
+
     EncodedParticles, EncodedTopology = EncodeNodes(par_data,topology,bc)
 
     real_idx = EncodedParticles[:,-1:].squeeze().nonzero()
@@ -285,6 +287,12 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None):
     edge_mask = np.all(np.isin(TorchTopology, real_idx),axis=0)
     
     data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask,edge_mask=edge_mask)
+    if label_data is not None:
+        y_abs = torch.tensor(label_data[real_idx,:3],dtype=torch.float).squeeze()
+        y = y_abs-TorchData[RealParticleMask,:3]
+        data.y = y
+    center = T.Center()
+    data = center(data)
     return data, topology
 
 def GetLength(listorarray):
