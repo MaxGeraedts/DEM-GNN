@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/vast.mnt/home/20182319/DEM-GNN/test.py", line 4, in <module>
+    from torch_geometric.data import Batch, Data, DataLoader, InMemoryDataset
+ModuleNotFoundError: No module named 'torch_geometric'

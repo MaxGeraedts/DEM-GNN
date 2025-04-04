@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=test_python
 #SBATCH --output=test_python-%j.log
-#SBATCH --partition=tue.default.q
+#SBATCH --partition=be.student.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
