@@ -261,7 +261,7 @@ def GetEdgeIdx(top,real_idx):
     """
     top_r=top[np.isin(top[:,1],real_idx)]
     top_v =np.flip(top,axis=1) 
-    edge_index = torch.tensor(np.concatenate((top_r,top_v),axis=0),dtype=torch.long).t().contiguous()
+    edge_index = torch.from_numpy(np.concatenate((top_r,top_v),axis=0)).long().t().contiguous()
     return edge_index 
     
 def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None):
@@ -282,13 +282,13 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None):
 
     real_idx = EncodedParticles[:,-1:].squeeze().nonzero()
     RealParticleMask = np.squeeze(EncodedParticles[:,-1:]==1)
-    TorchData = torch.tensor(EncodedParticles,dtype=torch.float)
+    TorchData = torch.from_numpy(EncodedParticles)
     TorchTopology = GetEdgeIdx(EncodedTopology,real_idx)    
     edge_mask = np.all(np.isin(TorchTopology, real_idx),axis=0)
     
     data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask,edge_mask=edge_mask)
     if label_data is not None:
-        y_abs = torch.tensor(label_data[real_idx,:3],dtype=torch.float).squeeze()
+        y_abs = torch.from_numpy(label_data[real_idx,:3]).squeeze()
         y = y_abs-TorchData[RealParticleMask,:3]
         data.y = y
     center = T.Center()
