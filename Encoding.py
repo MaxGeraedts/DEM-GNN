@@ -283,10 +283,11 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None):
     real_idx = EncodedParticles[:,-1:].squeeze().nonzero()
     RealParticleMask = np.squeeze(EncodedParticles[:,-1:]==1)
     TorchData = torch.from_numpy(EncodedParticles)
-    TorchTopology = GetEdgeIdx(EncodedTopology,real_idx)    
+    TorchTopology = GetEdgeIdx(EncodedTopology,real_idx) 
     edge_mask = np.all(np.isin(TorchTopology, real_idx),axis=0)
     
     data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask,edge_mask=edge_mask)
+    
     if label_data is not None:
         y_abs = torch.from_numpy(label_data[real_idx,:3]).squeeze()
         y = y_abs-TorchData[RealParticleMask,:3]
