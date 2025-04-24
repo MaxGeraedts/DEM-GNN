@@ -11,7 +11,7 @@
 #SBATCH --mail-type=END
 
 module purge
-# module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
+module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
 source $HOME/Environments/grad/bin/activate
 
 cd $HOME/DEM-GNN
