@@ -52,7 +52,7 @@ def AggregateRawData(data_dir:str,folder:str):
         data.append(data_temp)
 
         # Aggregate Start positions
-        coor_start = np.loadtxt(f"{sim_dir}\\data_particle.dat")                # Shape of Coordinates for simulation [Npar,[x y z]]]
+        coor_start = np.loadtxt(os.path.join(sim_dir,"data_particle.dat"))                # Shape of Coordinates for simulation [Npar,[x y z]]]
         data_start.append(np.concatenate((coor_start,prop_temp),axis=1))        # Shape of data_start for simulation [Npar,[x y z R E v]]
 
         # Aggregate graph topology for every step
@@ -174,10 +174,12 @@ def save(dataset_name,data_agr,top_agr,bc):
         data_start (Array): Timestep t=-1
         bc (Array): Aggregated boundary conditions
     """
-    np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Data.npy",np.array(data_agr, dtype=object),allow_pickle=True)
-    np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Topology.npy",np.array(top_agr, dtype=object),allow_pickle=True)
+    dir = os.path.join(os.getcwd(),"Data","raw")
+    np.save(os.path.join(dir,f"{dataset_name}_Data.npy"),np.array(data_agr, dtype=object),allow_pickle=True)
+    np.save(os.path.join(dir,f"{dataset_name}_Topology.npy"),np.array(top_agr, dtype=object),allow_pickle=True)
+    np.save(os.path.join(dir,f"{dataset_name}_BC"),np.array(bc, dtype=object),allow_pickle=True)
     #np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Data_start",np.array(data_start, dtype=object),allow_pickle=True)
-    np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_BC",np.array(bc, dtype=object),allow_pickle=True)
+    
     
 # Load an aggregated and encoded dataset 
 def load(dataset_name: str):
