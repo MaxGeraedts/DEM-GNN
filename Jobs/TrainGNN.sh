@@ -14,6 +14,7 @@ module purge
 module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
 source $HOME/Environments/grad/bin/activate
 
+mkdir $HOME/DEM-GNN/Data
 mkdir $HOME/DEM-GNN/Data/raw
 mkdir $HOME/DEM-GNN/Data/processed
 
