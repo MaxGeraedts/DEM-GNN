@@ -75,6 +75,7 @@ class DEM_Dataset(InMemoryDataset):
             torch.save(scale_x,os.path.join(self.processed_data_path,f"{self.file_name}_scale_x.pt"))
 
         if self.pre_transform is not None:
+            self.pre_transform = T.Compose([NormalizePos(self.file_name),self.pre_transform])
             data_list = [self.pre_transform(data) for data in tqdm(data_list)]   
                 
         self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))

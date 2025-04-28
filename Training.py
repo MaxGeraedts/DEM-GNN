@@ -19,8 +19,7 @@ if aggregate == True:
     save(dataset_name,*ArgsAggregation)
 
 data_split=[0.85, 0.95]
-pre_transform = T.Compose([NormalizePos(dataset_name),
-                           T.Cartesian(False),
+pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 transform       = None
 force_reload    = True
