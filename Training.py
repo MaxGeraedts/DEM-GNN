@@ -13,7 +13,7 @@ from ML_functions import DEM_Dataset, NormalizePos
 aggregate = True
 
 if aggregate == True:
-    dataset_name = "Scalability_Mono"
+    dataset_name = "Scalability"
     data_dir = "/home/20182319/Data/Scalability_Mono"
     ArgsAggregation = AggregateRawData(data_dir,dataset_name)
     save(dataset_name,*ArgsAggregation)
