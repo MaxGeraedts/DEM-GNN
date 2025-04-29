@@ -292,7 +292,7 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None):
 
     if label_data is not None:
         y_abs = label_data[real_idx,:3]
-        y = y_abs-TorchData[RealParticleMask,:3]
+        y = torch.from_numpy(y_abs)-TorchData[RealParticleMask,:3]
         data.y = y
     center = T.Center()
     data = center(data)
