@@ -14,11 +14,16 @@ module purge
 module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
 source $HOME/Environments/grad/bin/activate
 
+procdir=$HOME/DEM-GNN/Data/processed
+rawdir=$HOME/DEM-GNN/Data/raw
 mkdir $HOME/DEM-GNN/Data
-mkdir $HOME/DEM-GNN/Data/raw
-mkdir $HOME/DEM-GNN/Data/processed
+mkdir $rawdir
+mkdir $procdir
 
 cd $HOME/DEM-GNN
 python Training.py
 
 deactivate
+
+name=N400_Mono
+zip -r ${name}_data.zip $HOME/Data/$name $rawdir/${name}_Data.npy $rawdir/${name}_Topology.npy $rawdir/${name}_BC.npy $procdir/${name}_train.pt $procdir/${name}_test.pt $procdir/${name}_validate.pt $procdir/${name}_scale_pos.pt $procdir/${name}_scale_x.pt
