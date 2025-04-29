@@ -1,15 +1,22 @@
+# Imports
 import torch
 import torch.nn.functional as F
 from torch_geometric.data import Batch, Data, DataLoader, InMemoryDataset
 from torch_geometric.nn import MessagePassing
 import torch_geometric.transforms as T
+
 import numpy as np
 import os
+
 from tqdm import tqdm, trange
 from typing import Literal
 
+from IPython.display import clear_output
+import matplotlib.pyplot as plt
+
 from Encoding import ToPytorchData
 
+# Dataset
 def GetScales(dataset):
     scale_pos = 1.0/dataset.pos.abs().max()
     scale_x = 1/dataset.x.max(dim=0,keepdim=False)[0]
@@ -94,4 +101,120 @@ class NormalizePos(BaseTransform):
         data.pos *= self.scale_pos
         data.x   *= self.scale_x
         return data
+
+# Model
+class RelPosConv(MessagePassing):
+    def __init__(self, emb_dim, msg_dim, out_channels, aggr = 'mean'):
+        super().__init__(aggr=aggr)
+        self.edge_mlp = torch.nn.Linear(emb_dim+emb_dim,msg_dim)
+        self.update_mlp = torch.nn.Linear(emb_dim+msg_dim,out_channels)
+        self.reset_parameters()
+
+    def forward(self,x,edge_attr,edge_index):
+        out = self.propagate(edge_index,x=x,edge_attr=edge_attr)
+        return out
     
+    def message(self, x_j, edge_attr):
+        tmp = torch.cat([x_j, edge_attr],dim=1)
+        return self.edge_mlp(tmp)
+    
+    def update(self,aggr_out,x):
+        cat = torch.cat([x, aggr_out],dim=1)
+        return self.update_mlp(cat)
+    
+class GCONV_Model_RelPos(torch.nn.Module):
+    def __init__(self, emb_dim=64, msg_dim=64, node_dim=7, edge_dim=4, out_dim = 3):
+        super(GCONV_Model_RelPos,self).__init__()
+        self.node_embed = torch.nn.Linear(node_dim,emb_dim)
+        self.edge_embed = torch.nn.Linear(edge_dim,emb_dim)
+        self.conv1 = RelPosConv(emb_dim,msg_dim,emb_dim)
+        self.conv2 = RelPosConv(emb_dim,msg_dim,emb_dim)
+        self.conv3 = RelPosConv(emb_dim,msg_dim,out_dim)
+        self.mode = "delta"
+
+    def forward(self,data):
+        x, edge_attr, edge_index = data.x, data.edge_attr, data.edge_index
+        x = self.node_embed(x)
+        edge_attr = self.edge_embed(edge_attr)
+        x = F.relu(x)
+        x = self.conv1(x, edge_attr, edge_index)
+        x = F.relu(x)
+        x = self.conv2(x, edge_attr, edge_index)
+        x = F.relu(x)
+        x = self.conv3(x, edge_attr, edge_index)
+        return x
+    
+    # Training
+    class Trainer:
+        def __init__(self,model,dataset_train,dataset_val,batch_size,lr,epochs,model_name,loss_fn=torch.nn.MSELoss()):
+            self.model = model
+            self.batch_size = batch_size
+            self.lr = lr
+            self.epochs = epochs
+            self.loss_fn = loss_fn
+            self.model_name = model_name
+
+            self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
+            print("Device: ", self.device)
+            self.model.to(self.device)
+            self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
+            self.train_dl = self.make_data_loader(dataset_train, shuffle=True)
+            self.val_dl = self.make_data_loader(dataset_val, shuffle=False)
+
+        def make_data_loader(self, dataset, shuffle):
+            return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle)
+        
+        def loss_batch(self, batch,opt=None):
+            out = self.model(batch)
+            mask = np.concatenate(batch.mask)
+            loss =self.loss_fn(out[mask], batch.y)
+
+            if opt is not None:
+                loss.backward()
+                opt.step()
+                opt.zero_grad()
+            return loss.item()
+
+        def batch_loop(self, dataloader, loss_list, axes, opt=None):
+            mean_loss = 0
+            for i, batch in enumerate(dataloader):
+                batch_loss = self.loss_batch(batch.to(self.device), opt)
+                mean_loss += batch_loss
+            mean_loss /= i
+            loss_list.append(mean_loss)
+            axes[0].plot(loss_list)
+            axes[1].plot(loss_list[-5:])
+            return mean_loss,loss_list
+
+        def train_loop(self):
+            train_loss, val_loss = [], []
+            best_model_loss = np.inf
+            for epoch in tqdm(range(self.epochs)):
+                clear_output(wait=True)
+                fig, axes = plt.subplots(1,2)
+                fig.set_figwidth(15)
+
+                self.model.train()  
+                mean_train_loss, train_loss = self.batch_loop(self.train_dl,train_loss,axes,self.optimizer)
+
+                self.model.eval()
+                with torch.inference_mode():
+                    mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss,axes)
+
+                for ax in axes: ax.set(xlabel='Epoch',ylabel='Loss'), ax.set_ylim(ymin=0), ax.set_xlim(xmin=0)
+
+                plt.show()
+
+                if mean_val_loss < best_model_loss:
+                    best_model_loss = mean_val_loss
+                    torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.model_name))
+
+                print(f"Epoch {epoch}, Mean Train Loss: {mean_train_loss}, Mean Validation Loss: {mean_val_loss}")
+            np.save(f"{os.getcwd()}\\Models\\{self.model_name}_Training_Loss",train_loss)
+            np.save(f"{os.getcwd()}\\Models\\{self.model_name}_Validation_Loss",val_loss)
+
+def GetModel(dataset_name,model_name,edge_dim):
+    model = GCONV_Model_RelPos(edge_dim=edge_dim)
+    try: model.load_state_dict(torch.load(f"{os.getcwd()}\\Models\\{dataset_name}_GCONV_Model_{model_name}"))
+    except: print("No Trained model")
+    return model
