@@ -12,7 +12,7 @@ from ML_functions import DEM_Dataset, NormalizePos
 
 aggregate = False
 force_reload    = True
-dataset_name = "N400_Mono"
+dataset_name = "Scalability_Mono"
 
 if aggregate == True:
     data_dir = "/home/20182319/Data"

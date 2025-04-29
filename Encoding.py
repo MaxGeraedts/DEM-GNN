@@ -291,7 +291,7 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None):
     data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask,edge_mask=edge_mask)
 
     if label_data is not None:
-        y_abs = label_data[real_idx,:3]
+        y_abs = label_data[real_idx,:3].astype(float)
         y = torch.from_numpy(y_abs)-TorchData[RealParticleMask,:3]
         data.y = y
     center = T.Center()
