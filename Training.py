@@ -10,7 +10,7 @@ import numpy as np
 from Encoding import AggregateRawData, save
 from ML_functions import DEM_Dataset, NormalizePos
 
-aggregate = True
+aggregate = False
 force_reload    = True
 dataset_name = "N400_Mono"
 
