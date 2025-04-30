@@ -4,8 +4,8 @@ from Encoding import AggregateRawData, save
 from ML_functions import DEM_Dataset, Trainer, GetModel
 
 aggregate       = False
-force_reload    = True
-train           = False
+force_reload    = False
+train           = True
 dataset_name    = "N400_Mono"
 model_ident     = "_Model_1"
 
