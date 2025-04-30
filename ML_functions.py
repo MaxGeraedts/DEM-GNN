@@ -32,7 +32,7 @@ def DataMask(data,test_step: int = 20, val_step: int = 10):
     return np.invert(train), val.astype(bool), test.astype(bool)
 
 class DEM_Dataset(InMemoryDataset):
-    def __init__(self,file_name: str,data_split,
+    def __init__(self,file_name: str,
                  Dataset_type: Literal["train","validate","test"],
                  mode: Literal["cart","delta"],
                  force_reload=False,pre_transform=None, transform=None, pre_filter=None,
@@ -43,7 +43,6 @@ class DEM_Dataset(InMemoryDataset):
         self.file_name = file_name
         self.Dataset_type = Dataset_type
         self.mode = mode
-        self.data_split = data_split
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
         self.load(os.path.join(self.processed_data_path,self.processed_file_names[0]))
 
