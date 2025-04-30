@@ -11,8 +11,8 @@ from Encoding import AggregateRawData, save
 from ML_functions import DEM_Dataset, NormalizePos, Trainer, GetModel
 
 aggregate       = False
-force_reload    = False
-train           = True
+force_reload    = True
+train           = False
 dataset_name    = "N400_Mono"
 model_ident     = "_model_1"
 
