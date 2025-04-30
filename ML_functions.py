@@ -137,7 +137,7 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.msg_dim = msg_dim
         self.node_dim = node_dim
         self.edge_dim = edge_dim
-        self.node_embed = torch.nn.Linear(node_dim,emb_dim)
+        self.node_embed = torch.nn.Linear(node_dim,emb_dim,)
         self.edge_embed = torch.nn.Linear(edge_dim,emb_dim)
         self.conv1 = RelPosConv(emb_dim,msg_dim,emb_dim)
         self.conv2 = RelPosConv(emb_dim,msg_dim,emb_dim)
@@ -188,6 +188,7 @@ class Trainer:
         return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle)
     
     def loss_batch(self, batch,opt=None):
+        print(batch.x.dtype)
         out = self.model(batch)
         mask = np.concatenate(batch.mask)
         loss =self.loss_fn(out[mask], batch.y)

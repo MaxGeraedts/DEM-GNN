@@ -4,7 +4,7 @@
 #SBATCH --partition=be.gpuresearch.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --gpus-per-task=A40:1
+#SBATCH --gpus-per-task=1
 #SBATCH --mem-per-gpu=16gb
 #SBATCH --time=12:00:00
 #SBATCH --mail-user=m.geraedts1@student.tue.nl

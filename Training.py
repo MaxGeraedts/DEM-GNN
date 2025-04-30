@@ -1,7 +1,10 @@
+import torch.cuda
 import torch_geometric.transforms as T
 
 from Encoding import AggregateRawData, save
 from ML_functions import DEM_Dataset, Trainer, GetModel
+
+print(torch.cuda.is_available())
 
 aggregate       = False
 force_reload    = False
