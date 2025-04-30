@@ -28,8 +28,8 @@ def DataMask(data,test_step: int = 20, val_step: int = 10):
     val = test.copy()
     test[0::test_step]=1
     val[1::val_step]=1
-    train = np.astype(test+val,bool)
-    return np.invert(train), val.astype(bool), test.astype(bool)
+    train = test+val
+    return np.invert(train.astype(bool)), val.astype(bool), test.astype(bool)
 
 class DEM_Dataset(InMemoryDataset):
     def __init__(self,file_name: str,
