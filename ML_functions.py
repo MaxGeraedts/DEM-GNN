@@ -23,6 +23,14 @@ def GetScales(dataset):
     scale_x = 1/dataset.x.max(dim=0,keepdim=False)[0]
     return scale_pos,scale_x
 
+def DataMask(data,test_step: int = 20, val_step: int = 10):
+    test = np.zeros(data.shape[0]).astype(int)
+    val = test.copy()
+    test[0::test_step]=1
+    val[1::val_step]=1
+    train = np.astype(test+val,bool)
+    return np.invert(train), val.astype(bool), test.astype(bool)
+
 class DEM_Dataset(InMemoryDataset):
     def __init__(self,file_name: str,data_split,
                  Dataset_type: Literal["train","validate","test"],
@@ -56,9 +64,9 @@ class DEM_Dataset(InMemoryDataset):
     # Load data and split them according to dataset split
     def LoadSimTop(self,i):
         data = np.load(os.path.join(self.raw_data_path,self.raw_file_names[i]),allow_pickle=True)
-        Daset_type_idx = {"train":0,"validate":1,"test":2}[self.Dataset_type]
-        splits=np.array(self.data_split)*data.shape[0]
-        return np.split(data,splits.astype(int))[Daset_type_idx]
+        type_idx = {"train":0,"validate":1,"test":2}[self.Dataset_type]
+        mask =  DataMask(data)[type_idx]
+        return data[mask]
 
     def process(self):
         data_list = []
