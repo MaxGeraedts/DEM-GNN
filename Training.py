@@ -20,7 +20,7 @@ if aggregate == True:
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 
-dataset_train     = DEM_Dataset(dataset_name,"train"   ,'delta', force_reload, pre_transform)
+#dataset_train     = DEM_Dataset(dataset_name,"train"   ,'delta', force_reload, pre_transform)
 dataset_val       = DEM_Dataset(dataset_name,"validate",'delta', force_reload, pre_transform)
 dataset_test      = DEM_Dataset(dataset_name,"test"    ,'delta', force_reload, pre_transform)
 
@@ -29,7 +29,7 @@ if train == True:
                     emb_dim=64,
                     edge_dim=4)
     
-    trainer = Trainer(model, dataset_train,dataset_val,
+    trainer = Trainer(model, dataset_test,dataset_val,
                     batch_size=64,
                     lr=0.0000001,
                     epochs=1000,

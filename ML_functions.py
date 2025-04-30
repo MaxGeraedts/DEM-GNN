@@ -137,7 +137,7 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.msg_dim = msg_dim
         self.node_dim = node_dim
         self.edge_dim = edge_dim
-        self.node_embed = torch.nn.Linear(node_dim,emb_dim,)
+        self.node_embed = torch.nn.Linear(node_dim,emb_dim)
         self.edge_embed = torch.nn.Linear(edge_dim,emb_dim)
         self.conv1 = RelPosConv(emb_dim,msg_dim,emb_dim)
         self.conv2 = RelPosConv(emb_dim,msg_dim,emb_dim)
@@ -146,9 +146,11 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.conv5 = RelPosConv(emb_dim,msg_dim,emb_dim)
         self.conv6 = RelPosConv(emb_dim,msg_dim,emb_dim)
         self.decoder = torch.nn.Linear(emb_dim,out_dim)
-
+        self.double()
+        
     def forward(self,data):
         x, edge_attr, edge_index = data.x, data.edge_attr, data.edge_index
+        print(x.dtype)
         x = self.node_embed(x)
         edge_attr = self.edge_embed(edge_attr)
         x = F.relu(x)
