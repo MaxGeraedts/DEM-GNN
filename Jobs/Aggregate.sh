@@ -26,4 +26,6 @@ python Training.py
 deactivate
 
 name=N400_Mono
-zip -r ${name}_data.zip $HOME/Data/$name $rawdir/${name}_Data.npy $rawdir/${name}_Topology.npy $rawdir/${name}_BC.npy $procdir/${name}_train.pt $procdir/${name}_test.pt $procdir/${name}_validate.pt $procdir/${name}_scale_pos.pt $procdir/${name}_scale_x.pt
+cd $HOME/DEM-GNN/Data
+zip -r ${name}_raw.zip $HOME/Data/$name $rawdir/${name}_Data.npy $rawdir/${name}_Topology.npy $rawdir/${name}_BC.npy 
+zip ${name}_processed.zip $procdir/${name}_train.pt $procdir/${name}_test.pt $procdir/${name}_validate.pt $procdir/${name}_scale_pos.pt $procdir/${name}_scale_x.pt

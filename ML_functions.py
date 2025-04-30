@@ -13,6 +13,7 @@ from typing import Literal
 
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
+import json
 
 from Encoding import ToPytorchData
 
@@ -46,8 +47,8 @@ class DEM_Dataset(InMemoryDataset):
     
     @property
     def processed_file_names(self):
-        if self.pre_filter is None: return [f"{self.file_name}_{self.mode}_{self.Dataset_type}.pt"]
-        else: return [f"{self.file_name}_{self.mode}_{self.Dataset_type}_init.pt"]
+        if self.pre_filter is None: return [f"{self.file_name}_{self.Dataset_type}.pt"]
+        else: return [f"{self.file_name}_{self.Dataset_type}_init.pt"]
     
     def download(self):
         pass
@@ -125,12 +126,19 @@ class RelPosConv(MessagePassing):
 class GCONV_Model_RelPos(torch.nn.Module):
     def __init__(self, emb_dim=64, msg_dim=64, node_dim=7, edge_dim=4, out_dim = 3):
         super(GCONV_Model_RelPos,self).__init__()
+        self.emd_dim = emb_dim
+        self.msg_dim = msg_dim
+        self.node_dim = node_dim
+        self.edge_dim = edge_dim
         self.node_embed = torch.nn.Linear(node_dim,emb_dim)
         self.edge_embed = torch.nn.Linear(edge_dim,emb_dim)
         self.conv1 = RelPosConv(emb_dim,msg_dim,emb_dim)
         self.conv2 = RelPosConv(emb_dim,msg_dim,emb_dim)
-        self.conv3 = RelPosConv(emb_dim,msg_dim,out_dim)
-        self.mode = "delta"
+        self.conv3 = RelPosConv(emb_dim,msg_dim,emb_dim)
+        self.conv4 = RelPosConv(emb_dim,msg_dim,emb_dim)
+        self.conv5 = RelPosConv(emb_dim,msg_dim,emb_dim)
+        self.conv6 = RelPosConv(emb_dim,msg_dim,emb_dim)
+        self.decoder = torch.nn.Linear(emb_dim,out_dim)
 
     def forward(self,data):
         x, edge_attr, edge_index = data.x, data.edge_attr, data.edge_index
@@ -142,79 +150,96 @@ class GCONV_Model_RelPos(torch.nn.Module):
         x = self.conv2(x, edge_attr, edge_index)
         x = F.relu(x)
         x = self.conv3(x, edge_attr, edge_index)
+        x = F.relu(x)
+        x = self.conv4(x, edge_attr, edge_index)
+        x = F.relu(x)
+        x = self.conv5(x, edge_attr, edge_index)
+        x = F.relu(x)
+        x = self.conv6(x, edge_attr, edge_index)
+        x = F.relu(x)
+        x= self.decoder(x)
         return x
     
-    # Training
-    class Trainer:
-        def __init__(self,model,dataset_train,dataset_val,batch_size,lr,epochs,model_name,loss_fn=torch.nn.MSELoss()):
-            self.model = model
-            self.batch_size = batch_size
-            self.lr = lr
-            self.epochs = epochs
-            self.loss_fn = loss_fn
-            self.model_name = model_name
+# Training
+class Trainer:
+    def __init__(self,model,dataset_train,dataset_val,batch_size,lr,epochs,model_name,loss_fn=torch.nn.MSELoss()):
+        self.model = model
+        self.batch_size = batch_size
+        self.lr = lr
+        self.epochs = epochs
+        self.loss_fn = loss_fn
+        self.model_name = model_name
 
-            self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
-            print("Device: ", self.device)
-            self.model.to(self.device)
-            self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
-            self.train_dl = self.make_data_loader(dataset_train, shuffle=True)
-            self.val_dl = self.make_data_loader(dataset_val, shuffle=False)
+        self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
+        print("Device: ", self.device)
+        self.model.to(self.device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
+        self.train_dl = self.make_data_loader(dataset_train, shuffle=True)
+        self.val_dl = self.make_data_loader(dataset_val, shuffle=False)
 
-        def make_data_loader(self, dataset, shuffle):
-            return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle)
-        
-        def loss_batch(self, batch,opt=None):
-            out = self.model(batch)
-            mask = np.concatenate(batch.mask)
-            loss =self.loss_fn(out[mask], batch.y)
+    def make_data_loader(self, dataset, shuffle):
+        return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle)
+    
+    def loss_batch(self, batch,opt=None):
+        out = self.model(batch)
+        mask = np.concatenate(batch.mask)
+        loss =self.loss_fn(out[mask], batch.y)
 
-            if opt is not None:
-                loss.backward()
-                opt.step()
-                opt.zero_grad()
-            return loss.item()
+        if opt is not None:
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
+        return loss.item()
 
-        def batch_loop(self, dataloader, loss_list, axes, opt=None):
-            mean_loss = 0
-            for i, batch in enumerate(dataloader):
-                batch_loss = self.loss_batch(batch.to(self.device), opt)
-                mean_loss += batch_loss
-            mean_loss /= i
-            loss_list.append(mean_loss)
-            axes[0].plot(loss_list)
-            axes[1].plot(loss_list[-5:])
-            return mean_loss,loss_list
+    def batch_loop(self, dataloader, loss_list, axes, opt=None):
+        mean_loss = 0
+        for i, batch in enumerate(dataloader):
+            batch_loss = self.loss_batch(batch.to(self.device), opt)
+            mean_loss += batch_loss
+        mean_loss /= i
+        loss_list.append(mean_loss)
+        axes[0].plot(loss_list)
+        axes[1].plot(loss_list[-5:])
+        return mean_loss,loss_list
 
-        def train_loop(self):
-            train_loss, val_loss = [], []
-            best_model_loss = np.inf
-            for epoch in tqdm(range(self.epochs)):
-                clear_output(wait=True)
-                fig, axes = plt.subplots(1,2)
-                fig.set_figwidth(15)
+    def train_loop(self):
+        train_loss, val_loss = [], []
+        best_model_loss = np.inf
+        for epoch in tqdm(range(self.epochs)):
+            clear_output(wait=True)
+            fig, axes = plt.subplots(1,2)
+            fig.set_figwidth(15)
 
-                self.model.train()  
-                mean_train_loss, train_loss = self.batch_loop(self.train_dl,train_loss,axes,self.optimizer)
+            self.model.train()  
+            mean_train_loss, train_loss = self.batch_loop(self.train_dl,train_loss,axes,self.optimizer)
 
-                self.model.eval()
-                with torch.inference_mode():
-                    mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss,axes)
+            self.model.eval()
+            with torch.inference_mode():
+                mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss,axes)
 
-                for ax in axes: ax.set(xlabel='Epoch',ylabel='Loss'), ax.set_ylim(ymin=0), ax.set_xlim(xmin=0)
+            for ax in axes: ax.set(xlabel='Epoch',ylabel='Loss'), ax.set_ylim(ymin=0), ax.set_xlim(xmin=0)
 
-                plt.show()
+            plt.show()
 
-                if mean_val_loss < best_model_loss:
-                    best_model_loss = mean_val_loss
-                    torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.model_name))
+            if mean_val_loss < best_model_loss:
+                best_model_loss = mean_val_loss
+                torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.model_name))
 
-                print(f"Epoch {epoch}, Mean Train Loss: {mean_train_loss}, Mean Validation Loss: {mean_val_loss}")
-            np.save(f"{os.getcwd()}\\Models\\{self.model_name}_Training_Loss",train_loss)
-            np.save(f"{os.getcwd()}\\Models\\{self.model_name}_Validation_Loss",val_loss)
+            print(f"Epoch {epoch}, Mean Train Loss: {mean_train_loss}, Mean Validation Loss: {mean_val_loss}")
+        np.save(f"{os.getcwd()}\\Models\\{self.model_name}_Training_Loss",train_loss)
+        np.save(f"{os.getcwd()}\\Models\\{self.model_name}_Validation_Loss",val_loss)
 
-def GetModel(dataset_name,model_name,edge_dim):
-    model = GCONV_Model_RelPos(edge_dim=edge_dim)
-    try: model.load_state_dict(torch.load(f"{os.getcwd()}\\Models\\{dataset_name}_GCONV_Model_{model_name}"))
+def GetModel(dataset_name,model_ident,edge_dim, emb_dim):
+    model = GCONV_Model_RelPos(emb_dim=emb_dim,edge_dim=edge_dim)
+    try: model.load_state_dict(torch.load(os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}")))
     except: print("No Trained model")
     return model
+
+def SaveModelInfo(model,dataset_name,model_name):
+    ModelInfo = {"emb_dim":model.emb_dim,
+                 "msg_dim":model.msg_dim,
+                 "node_dim":model.node_dim,
+                 "edge_dim":model.edge_dim,}
+    filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_GCONV_Model_{model_name}.json")
+    with open(filename,'w') as f: 
+        json.dump(ModelInfo,f)
