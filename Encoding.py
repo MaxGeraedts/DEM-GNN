@@ -190,7 +190,7 @@ def load(dataset_name: str):
         dataset_name (str): Name of the loaded dataset
     
     Returns:
-        Tuple: [data_start, data, top , bc]
+        Tuple: [data, top , bc]
     """
     data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data.npy",allow_pickle=True)
     top = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Topology.npy",allow_pickle=True)
@@ -266,7 +266,7 @@ def GetEdgeIdx(top,real_idx):
     edge_index = torch.from_numpy(np.concatenate((top_r,top_v),axis=0)).long().t().contiguous()
     return edge_index 
     
-def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None):
+def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None,center=True):
     """Get pytorch data object from particle properties and boundary conditions
 
     Args:
@@ -294,8 +294,11 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None):
         y_abs = label_data[real_idx,:3].astype(float)
         y = torch.from_numpy(y_abs)-TorchData[RealParticleMask,:3]
         data.y = y.squeeze()
-    center = T.Center()
-    data = center(data)
+
+    if center == True:
+        center = T.Center()
+        data = center(data)
+
     return data, topology
 
 def GetLength(listorarray):

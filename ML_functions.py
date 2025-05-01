@@ -54,8 +54,7 @@ class DEM_Dataset(InMemoryDataset):
     
     @property
     def processed_file_names(self):
-        if self.pre_filter is None: return [f"{self.file_name}_{self.Dataset_type}.pt"]
-        else: return [f"{self.file_name}_{self.Dataset_type}_init.pt"]
+        return [f"{self.file_name}_{self.Dataset_type}.pt"]
     
     def download(self):
         pass
@@ -150,7 +149,6 @@ class GCONV_Model_RelPos(torch.nn.Module):
         
     def forward(self,data):
         x, edge_attr, edge_index = data.x, data.edge_attr, data.edge_index
-        print(x.dtype)
         x = self.node_embed(x)
         edge_attr = self.edge_embed(edge_attr)
         x = F.relu(x)
@@ -190,7 +188,6 @@ class Trainer:
         return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle)
     
     def loss_batch(self, batch,opt=None):
-        print(batch.x.dtype)
         out = self.model(batch)
         mask = np.concatenate(batch.mask)
         loss =self.loss_fn(out[mask], batch.y)
@@ -245,11 +242,11 @@ def GetModel(dataset_name,model_ident,edge_dim, emb_dim):
     except: print("No Trained model")
     return model
 
-def SaveModelInfo(model,dataset_name,model_name):
+def SaveModelInfo(model,dataset_name,model_ident):
     ModelInfo = {"emb_dim":model.emb_dim,
                  "msg_dim":model.msg_dim,
                  "node_dim":model.node_dim,
                  "edge_dim":model.edge_dim,}
-    filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_GCONV_Model_{model_name}.json")
+    filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}.json")
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)

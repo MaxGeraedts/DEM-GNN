@@ -2,7 +2,7 @@ import torch.cuda
 import torch_geometric.transforms as T
 
 from Encoding import AggregateRawData, save
-from ML_functions import DEM_Dataset, Trainer, GetModel
+from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo
 
 print(torch.cuda.is_available())
 
@@ -10,7 +10,7 @@ aggregate       = False
 force_reload    = False
 train           = True
 dataset_name    = "N400_Mono"
-model_ident     = "_Model_1"
+model_ident     = "Model_1"
 
 if aggregate == True:
     data_dir = "/home/20182319/Data"
@@ -25,9 +25,10 @@ dataset_val       = DEM_Dataset(dataset_name,"validate",'delta', force_reload, p
 dataset_test      = DEM_Dataset(dataset_name,"test"    ,'delta', force_reload, pre_transform)
 
 if train == True:
-    model = GetModel("N400",model_ident,
+    model = GetModel(dataset_name,model_ident,
                     emb_dim=64,
                     edge_dim=4)
+    SaveModelInfo(model,dataset_name,model_ident)
     
     trainer = Trainer(model, dataset_test,dataset_val,
                     batch_size=64,
