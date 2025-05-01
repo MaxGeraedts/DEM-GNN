@@ -233,11 +233,13 @@ class Trainer:
                 torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.model_name))
 
             print(f"Epoch {epoch}, Mean Train Loss: {mean_train_loss}, Mean Validation Loss: {mean_val_loss}")
-        np.save(f"{os.getcwd()}\\Models\\{self.model_name}_Training_Loss",train_loss)
-        np.save(f"{os.getcwd()}\\Models\\{self.model_name}_Validation_Loss",val_loss)
+        np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Training_Loss"),train_loss)
+        np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Validation_Loss"),val_loss)
 
-def GetModel(dataset_name,model_ident,edge_dim, emb_dim):
-    model = GCONV_Model_RelPos(emb_dim=emb_dim,edge_dim=edge_dim)
+def GetModel(dataset_name,model_ident,emb_dim=64,msg_dim=64,edge_dim=4):
+    model = GCONV_Model_RelPos(emb_dim=emb_dim,
+                               msg_dim=msg_dim,
+                               edge_dim=edge_dim)
     try: model.load_state_dict(torch.load(os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}")))
     except: print("No Trained model")
     return model
