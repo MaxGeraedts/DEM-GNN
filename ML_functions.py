@@ -132,7 +132,7 @@ class RelPosConv(MessagePassing):
 class GCONV_Model_RelPos(torch.nn.Module):
     def __init__(self, emb_dim=64, msg_dim=64, node_dim=7, edge_dim=4, out_dim = 3):
         super(GCONV_Model_RelPos,self).__init__()
-        self.emd_dim = emb_dim
+        self.emb_dim = emb_dim
         self.msg_dim = msg_dim
         self.node_dim = node_dim
         self.edge_dim = edge_dim
