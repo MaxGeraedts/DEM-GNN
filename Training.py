@@ -10,7 +10,7 @@ aggregate       = False
 force_reload    = False
 train           = True
 dataset_name    = "N400_Mono"
-model_ident     = "Model_2"
+model_ident     = "Model_3"
 
 if aggregate == True:
     data_dir = "/home/20182319/Data"
@@ -26,8 +26,8 @@ dataset_test      = DEM_Dataset(dataset_name,"test"    ,'delta', force_reload, p
 
 if train == True:
     model = GetModel(dataset_name,model_ident,
-                     msg_dim=128,
-                     emb_dim=128,
+                     msg_dim=64,
+                     emb_dim=64,
                      edge_dim=4)
     
     SaveModelInfo(model,dataset_name,model_ident)
