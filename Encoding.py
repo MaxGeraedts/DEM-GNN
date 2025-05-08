@@ -308,6 +308,13 @@ def GetLength(listorarray):
         length = listorarray.shape[0]
     return length
 
+def ConvertToDirected(data):
+    Nreal = np.sum(data.edge_mask)
+    dirmask = np.ones_like(data.edge_mask)
+    dirmask[int(Nreal/2):int(Nreal)] = False
+    data.edge_index = data.edge_index[:,dirmask]
+    data.edge_mask = data.edge_mask[dirmask]
+    return data
 
 if __name__ == "__main__":
     dataset_name = "2Sphere"

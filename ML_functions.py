@@ -237,11 +237,21 @@ class Trainer:
         np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Validation_Loss"),val_loss)
 
 def GetModel(dataset_name,model_ident,emb_dim=64,msg_dim=64,edge_dim=4):
-    model = GCONV_Model_RelPos(emb_dim=emb_dim,
-                               msg_dim=msg_dim,
-                               edge_dim=edge_dim)
-    try: model.load_state_dict(torch.load(os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}")))
-    except: print("No Trained model")
+    try: 
+        model_name = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}")
+        with open(f"{model_name}.json") as json_file: 
+            settings = json.load(json_file)
+        model = GCONV_Model_RelPos(emb_dim=settings["emb_dim"],
+                                   msg_dim=settings["msg_dim"],
+                                   node_dim=settings["node_dim"],
+                                   edge_dim=settings["edge_dim"])
+        model.load_state_dict(torch.load(model_name))
+        print("Loaded model")
+    except: 
+        print("No Trained model")
+        model = GCONV_Model_RelPos(emb_dim=emb_dim,
+                                   msg_dim=msg_dim,
+                                   edge_dim=edge_dim)
     return model
 
 def SaveModelInfo(model,dataset_name,model_ident):

@@ -33,9 +33,9 @@ if train == True:
     SaveModelInfo(model,dataset_name,model_ident)
     
     trainer = Trainer(model, dataset_test,dataset_val,
-                    batch_size=64,
-                    lr=0.0000001,
-                    epochs=1000,
-                    model_name=f"{dataset_name}_{model_ident}")
+                      batch_size=64,
+                      lr=0.0000001,
+                      epochs=1000,
+                      model_name=f"{dataset_name}_{model_ident}")
     
     trainer.train_loop()

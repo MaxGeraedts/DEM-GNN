@@ -283,6 +283,8 @@ def GetStressTensor(data,BC):
     """
     contactpoints = GetAllContactpoints(data)
     contactvector = contactpoints - data.pos[data.edge_index[1,:]]
+    #contactvector = data.pos[data.edge_index[1,:]] - data.pos[data.edge_index[0,:]]
+
     contactforce = GetContactForce(data)
     stress_tensor = torch.zeros((3,3))
     vol = GetVolumeAndExtremeDims(BC)[0]
@@ -293,6 +295,7 @@ def GetStressTensor(data,BC):
     stress_tensor /= vol
     return stress_tensor
 
+from Encoding import ConvertToDirected
 def GetInternalStressRollout(Rollout):
     """Calculate internal stress tensor (Gauchy) for every timestep
 
@@ -305,6 +308,7 @@ def GetInternalStressRollout(Rollout):
     stress_evo = torch.zeros((Rollout.timesteps,3,3))
     for t in range(Rollout.timesteps):
         data = Rollout.GroundTruth[t]
+        data = ConvertToDirected(data.clone())
         BC = Rollout.BC_rollout[t][:,:3]
         stress_evo[t] = GetStressTensor(data,BC)
     return stress_evo
