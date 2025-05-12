@@ -1,5 +1,6 @@
 import torch
 from tqdm import tqdm
+import numpy as np
 
 def EffectiveE(data,idx):
     poisson_ratio = data.x[idx,2]

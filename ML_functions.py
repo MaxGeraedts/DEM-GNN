@@ -80,7 +80,7 @@ class DEM_Dataset(InMemoryDataset):
                 par_data = sim[t]
                 label_data = sim[t+1]
                 topology = top[t]
-                BC_t = bc.clone()
+                BC_t = bc.copy()
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
                 data = ToPytorchData(par_data,BC_t,None,topology,label_data)[0]
                 data_list.append(data)
@@ -134,6 +134,7 @@ class RelPosConv(MessagePassing):
 class GCONV_Model_RelPos(torch.nn.Module):
     def __init__(self,msg_num=3, emb_dim=64, msg_dim=64, node_dim=7, edge_dim=4, out_dim = 3):
         super(GCONV_Model_RelPos,self).__init__()
+        self.msg_num = msg_num
         self.emb_dim = emb_dim
         self.msg_dim = msg_dim
         self.node_dim = node_dim
