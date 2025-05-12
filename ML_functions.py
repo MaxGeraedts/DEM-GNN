@@ -80,7 +80,9 @@ class DEM_Dataset(InMemoryDataset):
                 par_data = sim[t]
                 label_data = sim[t+1]
                 topology = top[t]
-                data = ToPytorchData(par_data,bc,None,topology,label_data)[0]
+                BC_t = bc.clone()
+                BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
+                data = ToPytorchData(par_data,BC_t,None,topology,label_data)[0]
                 data_list.append(data)
 
         if self.Dataset_type == "train":
@@ -130,7 +132,7 @@ class RelPosConv(MessagePassing):
         return self.update_mlp(cat)
     
 class GCONV_Model_RelPos(torch.nn.Module):
-    def __init__(self, emb_dim=64, msg_dim=64, node_dim=7, edge_dim=4, out_dim = 3):
+    def __init__(self,msg_num=3, emb_dim=64, msg_dim=64, node_dim=7, edge_dim=4, out_dim = 3):
         super(GCONV_Model_RelPos,self).__init__()
         self.emb_dim = emb_dim
         self.msg_dim = msg_dim
@@ -138,9 +140,11 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.edge_dim = edge_dim
         self.node_embed = torch.nn.Linear(node_dim,emb_dim)
         self.edge_embed = torch.nn.Linear(edge_dim,emb_dim)
-        self.conv1 = RelPosConv(emb_dim,msg_dim,emb_dim)
-        self.conv2 = RelPosConv(emb_dim,msg_dim,emb_dim)
-        self.conv3 = RelPosConv(emb_dim,msg_dim,emb_dim)
+        self.conv = [None]* msg_num
+        for k in range(msg_num):
+            self.conv[k] = RelPosConv(emb_dim,msg_dim,emb_dim)
+        #self.conv2 = RelPosConv(emb_dim,msg_dim,emb_dim)
+        #self.conv3 = RelPosConv(emb_dim,msg_dim,emb_dim)
         #self.conv4 = RelPosConv(emb_dim,msg_dim,emb_dim)
         #self.conv5 = RelPosConv(emb_dim,msg_dim,emb_dim)
         #self.conv6 = RelPosConv(emb_dim,msg_dim,emb_dim)
@@ -150,14 +154,16 @@ class GCONV_Model_RelPos(torch.nn.Module):
     def forward(self,data):
         x, edge_attr, edge_index = data.x, data.edge_attr, data.edge_index
         x = self.node_embed(x)
+        x = F.relu(x)
         edge_attr = self.edge_embed(edge_attr)
-        x = F.relu(x)
-        x = self.conv1(x, edge_attr, edge_index)
-        x = F.relu(x)
-        x = self.conv2(x, edge_attr, edge_index)
-        x = F.relu(x)
-        x = self.conv3(x, edge_attr, edge_index)
-        x = F.relu(x)
+        edge_attr = F.relu(edge_attr)
+        for k in range(self.msg_num):
+            x = self.conv[k](x, edge_attr, edge_index)
+            x = F.relu(x)
+        #x = self.conv2(x, edge_attr, edge_index)
+        #x = F.relu(x)
+        #x = self.conv3(x, edge_attr, edge_index)
+        #x = F.relu(x)
         #x = self.conv4(x, edge_attr, edge_index)
         #x = F.relu(x)
         #x = self.conv5(x, edge_attr, edge_index)
@@ -255,7 +261,8 @@ def GetModel(dataset_name,model_ident,emb_dim=64,msg_dim=64,edge_dim=4):
     return model
 
 def SaveModelInfo(model,dataset_name,model_ident):
-    ModelInfo = {"emb_dim":model.emb_dim,
+    ModelInfo = {"msg_num":model.msg_num,
+                 "emb_dim":model.emb_dim,
                  "msg_dim":model.msg_dim,
                  "node_dim":model.node_dim,
                  "edge_dim":model.edge_dim,}
