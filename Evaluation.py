@@ -120,6 +120,14 @@ def GetInternalStressRollout(Rollout):
     return stress_evo
 
 def AggregateForces(datalist):
+    """Calculates resultant forces for each particles, their norms and the sum of all norms
+
+    Args:
+        datalist (list): Rollout list of data describing graphs
+
+    Returns:
+        Farg (tuple): F_agr: resultant force for each particle, F_norm: norms of resultant forces, F_sum: sum of all norms
+    """
     F_agr = torch.zeros([datalist.shape[0],datalist[0].mask.sum(),3])
     for t,data in tqdm(enumerate(datalist)):
         force = GetContactForce(data)

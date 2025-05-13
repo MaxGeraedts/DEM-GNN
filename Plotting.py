@@ -237,9 +237,7 @@ def MakeGIF(datalist,gifname,fps=7,color='lightblue',deformation=False):
     plotter.close()
 
 from Evaluation import AggregateForces
-def PlotFres(Rollout):
-    Fsum_GT  = AggregateForces(Rollout.GroundTruth)[2]
-    Fsum_ML  = AggregateForces(Rollout.ML_rollout)[2]
+def PlotFres(Fsum_GT,Fsum_ML):
     fig = plt.figure(figsize=(10,7))
     plt.plot(Fsum_GT,label="Ground Truth")
     plt.plot(Fsum_ML, label="Model")
@@ -248,3 +246,31 @@ def PlotFres(Rollout):
     plt.xlabel("Increment",fontname="Times New Roman",fontweight='bold')
     plt.legend()
     return fig
+
+def PlotFnormDistribution(ax,quantiles,Fnorm,color):
+    t = np.arange(Fnorm.size()[0])
+    for i,quantile in enumerate(quantiles):
+        quantmin  = np.percentile(Fnorm,quantile,1)
+        quantmax = np.percentile(Fnorm,(100-quantile),1)
+        if quantile == 50:
+            ax.plot(t,quantmin,'-',color=f"tab:{color}",label="Median")
+        else:
+            ax.fill_between(x=t, y1=quantmin, y2=quantmax, alpha=0.2, color=f"tab:{color}",label=f"{100-quantile}%")
+
+def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles):
+    fig, ax = plt.subplots(1,2,figsize=(12, 5),sharey=False,sharex=True)
+    plt.rcParams["font.family"] = "Times New Roman"
+    fig.suptitle("Evolution of the Resultant Force Distribution",
+                fontname="Times New Roman",
+                fontweight='bold',
+                fontsize=20)
+    
+    PlotFnormDistribution(ax[0],quantiles,Fnorm_GT,"blue")
+    ax[0].legend(title="Groundtruth",title_fontproperties={"size":10,"weight":"bold"})
+    ax[0].set_ylabel("Fres (N)")
+    ax[0].set_xlabel("Increment")
+
+    PlotFnormDistribution(ax[1],quantiles,Fnorm_ML,"red")
+    ax[1].legend(title="Model",title_fontproperties={"size":10,"weight":"bold"})
+    ax[1].set_xlabel("Increment")
+    return fig, ax

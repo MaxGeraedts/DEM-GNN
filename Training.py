@@ -7,9 +7,9 @@ from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo
 print(torch.cuda.is_available())
 
 aggregate       = False
-force_reload    = True
+force_reload    = False
 train           = True
-dataset_name    = "2Sphere"
+dataset_name    = "N400_Mono"
 model_ident     = "Model_1"
 
 if aggregate == True:
