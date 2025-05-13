@@ -144,6 +144,7 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.conv = [None]* msg_num
         for k in range(msg_num):
             self.conv[k] = RelPosConv(emb_dim,msg_dim,emb_dim)
+            self.conv[k].double().to(torch.device('cuda' if torch.cuda.is_available()else 'cpu'))
         #self.conv2 = RelPosConv(emb_dim,msg_dim,emb_dim)
         #self.conv3 = RelPosConv(emb_dim,msg_dim,emb_dim)
         #self.conv4 = RelPosConv(emb_dim,msg_dim,emb_dim)
