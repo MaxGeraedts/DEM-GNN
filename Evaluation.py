@@ -2,6 +2,29 @@ import torch
 from tqdm import tqdm
 import numpy as np
 
+def GetAllContactpoints(data):
+    real_edge = data.edge_index[:,data.edge_mask]
+    origins = real_edge[0,:]
+    destinations = real_edge[1,:]
+    midpoints = (data.pos[origins]+data.pos[destinations])/2
+    wallpoints = data.pos[~data.mask]
+    contactpoints = torch.concatenate((midpoints,wallpoints))
+    return contactpoints
+
+def GetContactPerParticle(data,contactpoints):
+    Numpar = data.x[data.mask].shape[0]
+    ParContactPoints = [[] for i in range(Numpar)]
+    ParContactNormals = [[] for i in range(Numpar)]
+    
+    for i,par_i in enumerate(data.edge_index[1,:]):
+        par_i = int(par_i)
+        ParContactPoints[par_i].append(contactpoints[i])
+        normal_temp = contactpoints[i]-data.pos[par_i]
+        ParContactNormals[par_i].append(normal_temp/np.linalg.norm(normal_temp))
+    ParContactPoints = [np.array(ParContactPoints[i]) for i in range(len(ParContactPoints))]
+    ParContactNormals = [np.array(ParContactNormals[i]) for i in range(len(ParContactNormals))]  
+    return ParContactPoints, ParContactNormals
+
 def EffectiveE(data,idx):
     poisson_ratio = data.x[idx,2]
     Youngs_mod = data.x[idx,1]
@@ -76,7 +99,6 @@ def GetVolumeAndExtremeDims(BC):
     vol = (xmax-xmin)*(ymax-ymin)*(zmax-zmin)
     return vol,maxdim
 
-from Plotting import GetAllContactpoints
 def GetStressTensor(data,BC):
     """Calculate Internal stress tensor for one timestep
 
@@ -137,3 +159,26 @@ def AggregateForces(datalist):
     F_norm = torch.norm(F_res,dim=2)
     F_sum = torch.sum(F_norm,1)
     return F_contact,F_res, F_norm, F_sum
+
+def GetWallArea(BC):
+    maxdims = GetVolumeAndExtremeDims(BC)[1]
+    [x,y,z] = maxdims[:,1] - maxdims[:,0]
+    x,y,z = x.item(),y.item(),z.item()
+    A_wall = [[y*z,x*z,x*y,y*z,x*z,x*y]]
+    return np.array(A_wall)
+
+def WallReaction(datalist,BC_rollout,Fcontact):
+    F_wall = torch.zeros((BC_rollout[0].shape[0],len(datalist),3))
+    S_wall = torch.zeros_like(F_wall)
+    for t,data in enumerate(datalist): 
+        F_PWcontact = Fcontact[t][np.invert(data.edge_mask),:]
+        Wallcontact = data.MatlabTopology[data.MatlabTopology[:,1]<0]
+        Wallcontact[:,1] += 2
+        Wallcontact[:,1] *= -1
+        Wall_idx = Wallcontact[:,1]
+        F_PWcontact.shape, Wall_idx.shape
+        A_wall = GetWallArea(BC_rollout[t])
+        for i,Wall in enumerate(Wall_idx):
+            F_wall[Wall,t,:] += F_PWcontact[i,:]
+        S_wall[:,t,:] = F_wall[:,t,:]/A_wall.T
+    return F_wall, S_wall

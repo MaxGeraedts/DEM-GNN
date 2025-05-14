@@ -135,28 +135,7 @@ def PlotXYZ(Rollouts,t_max):
         ax.set_xlim(xmin=0,xmax=t_max)
 
 ## Render deformed particles
-def GetAllContactpoints(data):
-    real_edge = data.edge_index[:,data.edge_mask]
-    origins = real_edge[0,:]
-    destinations = real_edge[1,:]
-    midpoints = (data.pos[origins]+data.pos[destinations])/2
-    wallpoints = data.pos[~data.mask]
-    contactpoints = torch.concatenate((midpoints,wallpoints))
-    return contactpoints
-
-def GetContactPerParticle(data,contactpoints):
-    Numpar = data.x[data.mask].shape[0]
-    ParContactPoints = [[] for i in range(Numpar)]
-    ParContactNormals = [[] for i in range(Numpar)]
-    
-    for i,par_i in enumerate(data.edge_index[1,:]):
-        par_i = int(par_i)
-        ParContactPoints[par_i].append(contactpoints[i])
-        normal_temp = contactpoints[i]-data.pos[par_i]
-        ParContactNormals[par_i].append(normal_temp/np.linalg.norm(normal_temp))
-    ParContactPoints = [np.array(ParContactPoints[i]) for i in range(len(ParContactPoints))]
-    ParContactNormals = [np.array(ParContactNormals[i]) for i in range(len(ParContactNormals))]  
-    return ParContactPoints, ParContactNormals
+from Evaluation import GetAllContactpoints, GetContactPerParticle
 
 def DeformedParticleMesh(radius,center,contactpoints,contactnormals,deformation=True,resolution=100):
     sphere = pv.Sphere(radius,center,theta_resolution=resolution,phi_resolution=resolution)
@@ -275,3 +254,33 @@ def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles):
     ax[1].legend(title="Model",title_fontproperties={"size":10,"weight":"bold"})
     ax[1].set_xlabel("Increment")
     return fig, ax
+
+from Evaluation import WallReaction
+def PlotStressComparison(Rollout,Fcontact_GT,Fcontact_ML,Plot_ML):
+    fig, axs = plt.subplots(1,3,figsize=(17,5),sharey=True)
+    F_wall, S_wall = WallReaction(Rollout.GroundTruth,Rollout.BC_rollout,Fcontact_GT)
+    S_wall = S_wall.norm(dim=2)
+
+    for dim in [0,1,2]:
+        axs[dim].plot(S_wall[dim,:]  , label="Groundtruth: Top wall"   , color="tab:blue", alpha=0.3)
+        axs[dim].plot(S_wall[dim+3,:], label="Groundtruth: Bottom wall", color="tab:blue", linestyle=(0,(5,7)))
+        axs[dim].set_xlabel("Increment",fontweight='bold')
+
+    if Plot_ML == True:
+        F_wall, S_wall = WallReaction(Rollout.ML_rollout,Rollout.BC_rollout,Fcontact_ML)
+        S_wall = S_wall.norm(dim=2)
+        for dim in [0,1,2]:
+            axs[dim].plot(S_wall[dim,:]  , label="Model: Top wall"   , color="tab:red", alpha=0.3)
+            axs[dim].plot(S_wall[dim+3,:], label="Model: Bottom wall", color="tab:red", linestyle=(0,(5,7)))    
+
+    axs[2].legend()
+    fig.suptitle("Stress on Boundary Walls",
+                fontname="Times New Roman",
+                fontweight='bold',
+                fontsize=20)
+    axs[0].set_title("X")
+    axs[1].set_title("Y")
+    axs[2].set_title("Z")
+    axs[0].set_ylabel("Stress (N/mm2)",fontweight='bold')
+
+    return fig, axs
