@@ -128,11 +128,12 @@ def AggregateForces(datalist):
     Returns:
         Farg (tuple): F_agr: resultant force for each particle, F_norm: norms of resultant forces, F_sum: sum of all norms
     """
-    F_agr = torch.zeros([datalist.shape[0],datalist[0].mask.sum(),3])
+    F_res = torch.zeros([datalist.shape[0],datalist[0].mask.sum(),3])
+    F_contact = [None]*datalist.shape[0]
     for t,data in tqdm(enumerate(datalist)):
-        force = GetContactForce(data)
+        F_contact[t] = GetContactForce(data)
         for i,par_index in enumerate(data.edge_index[1,:]):
-            F_agr[t,par_index,:] += force[i,:]
-    F_norm = torch.norm(F_agr,dim=2)
+            F_res[t,par_index,:] += F_contact[t][i,:]
+    F_norm = torch.norm(F_res,dim=2)
     F_sum = torch.sum(F_norm,1)
-    return F_agr, F_norm, F_sum
+    return F_contact,F_res, F_norm, F_sum
