@@ -26,6 +26,7 @@ dataset_test      = DEM_Dataset(dataset_name,"test"    ,'delta', force_reload, p
 
 if train == True:
     model = GetModel(dataset_name,model_ident,
+                     msg_num=3,
                      msg_dim=64,
                      emb_dim=64,
                      edge_dim=4)
@@ -33,7 +34,7 @@ if train == True:
     SaveModelInfo(model,dataset_name,model_ident)
     
     trainer = Trainer(model, dataset_test,dataset_val,
-                      batch_size=64,
+                      batch_size=32,
                       lr=0.0000001,
                       epochs=1000,
                       model_name=f"{dataset_name}_{model_ident}")
