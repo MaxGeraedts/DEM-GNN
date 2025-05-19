@@ -92,8 +92,7 @@ class DEM_Dataset(InMemoryDataset):
                 topology = top[t]
                 BC_t = bc.copy()
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
-                topology = ConstructTopology(par_data,BC_t,0)
-                data = ToPytorchData(par_data,BC_t,None,topology,label_data)[0]
+                data = ToPytorchData(par_data,BC_t,0,label_data=label_data)[0]
                 data_list.append(data)
 
         if self.Dataset_type == "train":
