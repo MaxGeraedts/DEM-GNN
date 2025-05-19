@@ -34,7 +34,7 @@ if train == True:
     SaveModelInfo(model,dataset_name,model_ident)
     
     trainer = Trainer(model, dataset_test,dataset_val,
-                      batch_size=32,
+                      batch_size=64,
                       lr=0.0000001,
                       epochs=500,
                       model_name=f"{dataset_name}_{model_ident}")
