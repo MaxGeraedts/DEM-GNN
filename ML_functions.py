@@ -242,6 +242,7 @@ class Trainer:
 
             #print(f"\nEpoch {epoch}, Mean Train Loss: {mean_train_loss}, Mean Validation Loss: {mean_val_loss}")
             print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.5f}  |  Mean Validation Loss: {mean_val_loss:.5f}")
+            print("Test")
         np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Training_Loss"),train_loss)
         np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Validation_Loss"),val_loss)
 
