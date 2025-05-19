@@ -7,10 +7,10 @@ from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo
 print(torch.cuda.is_available())
 
 aggregate       = False
-force_reload    = False
+force_reload    = True
 train           = True
-dataset_name    = "N400_Mono"
-model_ident     = "Model_1"
+dataset_name    = "2Sphere"
+model_ident     = "Model_2"
 
 if aggregate == True:
     data_dir = "/home/20182319/Data"
