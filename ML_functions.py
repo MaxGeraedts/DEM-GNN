@@ -15,7 +15,7 @@ from IPython.display import clear_output
 import matplotlib.pyplot as plt
 import json
 
-from Encoding import ToPytorchData
+from Encoding import ToPytorchData, ConstructTopology
 
 # Dataset
 def GetScales(dataset):
@@ -24,6 +24,16 @@ def GetScales(dataset):
     return scale_pos,scale_x
 
 def DataMask(data,test_step: int = 20, val_step: int = 10):
+    """Generates a boolean mask to split raw data into training, testing, and validation data
+
+    Args:
+        data (array): raw data array
+        test_step (int, optional): Every nth steps which is included. Defaults to 20.
+        val_step (int, optional): Every nth steps which are includeded. Defaults to 10.
+
+    Returns:
+        tuple: [train_mask, val_mask,test_mask]
+    """
     test = np.zeros(data.shape[0]).astype(int)
     val = test.copy()
     test[0::test_step]=1
@@ -82,6 +92,7 @@ class DEM_Dataset(InMemoryDataset):
                 topology = top[t]
                 BC_t = bc.copy()
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
+                topology = ConstructTopology(par_data,BC_t,0)
                 data = ToPytorchData(par_data,BC_t,None,topology,label_data)[0]
                 data_list.append(data)
 
@@ -206,35 +217,25 @@ class Trainer:
             opt.zero_grad()
         return loss.item()
 
-    def batch_loop(self, dataloader, loss_list, axes, opt=None):
+    def batch_loop(self, dataloader, loss_list, opt=None):
         mean_loss = 0
         for i, batch in enumerate(dataloader):
             batch_loss = self.loss_batch(batch.to(self.device), opt)
             mean_loss += batch_loss
         mean_loss /= i
         loss_list.append(mean_loss)
-        axes[0].plot(loss_list)
-        axes[1].plot(loss_list[-5:])
         return mean_loss,loss_list
 
     def train_loop(self):
         train_loss, val_loss = [], []
         best_model_loss = np.inf
         for epoch in tqdm(range(self.epochs)):
-            clear_output(wait=True)
-            fig, axes = plt.subplots(1,2)
-            fig.set_figwidth(15)
-
             self.model.train()  
-            mean_train_loss, train_loss = self.batch_loop(self.train_dl,train_loss,axes,self.optimizer)
+            mean_train_loss, train_loss = self.batch_loop(self.train_dl,train_loss,self.optimizer)
 
             self.model.eval()
             with torch.inference_mode():
-                mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss,axes)
-
-            for ax in axes: ax.set(xlabel='Epoch',ylabel='Loss'), ax.set_ylim(ymin=0), ax.set_xlim(xmin=0)
-
-            plt.show()
+                mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss)
 
             if mean_val_loss < best_model_loss:
                 best_model_loss = mean_val_loss
@@ -273,3 +274,4 @@ def SaveModelInfo(model,dataset_name,model_ident):
     filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}.json")
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)
+
