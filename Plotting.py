@@ -237,8 +237,8 @@ def PlotFnormDistribution(ax,quantiles,Fnorm,color):
         else:
             ax.fill_between(x=t, y1=quantmin, y2=quantmax, alpha=0.2, color=f"tab:{color}",label=f"{100-quantile}%")
 
-def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles):
-    fig, ax = plt.subplots(1,2,figsize=(12, 5),sharey=False,sharex=True)
+def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles,sharey=False):
+    fig, ax = plt.subplots(1,2,figsize=(12, 5),sharey=sharey,sharex=True)
     plt.rcParams["font.family"] = "Times New Roman"
     fig.suptitle("Evolution of the Resultant Force Distribution",
                 fontname="Times New Roman",
@@ -282,5 +282,25 @@ def PlotStressComparison(Rollout,Fcontact_GT,Fcontact_ML,Plot_ML):
     axs[1].set_title("Y")
     axs[2].set_title("Z")
     axs[0].set_ylabel("Stress (N/mm2)",fontweight='bold')
+
+    return fig, axs
+
+def PlotTrainingLoss(dataset_name,model_ident):
+    model_name = f"{dataset_name}_{model_ident}"
+    training_loss = np.load(os.path.join(os.getcwd(),"Models",f"{model_name}_Training_Loss.npy"))
+    validation_loss = np.load(os.path.join(os.getcwd(),"Models",f"{model_name}_Validation_Loss.npy"))
+    plt.rcParams["font.family"] = "Times New Roman"
+    fig, axs = plt.subplots(1,2,figsize=(12,5))
+
+    for ax in axs:
+        ax.plot(training_loss[:500],label="Training Loss")
+        ax.plot(validation_loss[:500],label="Validation Loss")
+        ax.set_xlabel('Epoch',fontweight='bold')
+        ax.set_ylabel("Loss",fontweight='bold')
+        ax.legend()
+
+    axs[1].set_yscale('log')
+    axs[1].set_title("Logarithmic Scale")
+    axs[0].set_title("Linear Scale")
 
     return fig, axs
