@@ -93,9 +93,9 @@ class DEM_Dataset(InMemoryDataset):
             for t in np.arange(len(sim)-1):
                 par_data = sim[t]
                 label_data = sim[t+1]
-                topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
                 BC_t = bc.copy()
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
+                topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
                 data = ToPytorchData(par_data,BC_t,0,topology,label_data)[0]
                 data_list.append(data)
 
@@ -247,7 +247,7 @@ class Trainer:
             if epoch % 100 == 0:
                 np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Training_Loss"),train_loss)
                 np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Validation_Loss"),val_loss)
-                
+
             print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.5f}  |  Mean Validation Loss: {mean_val_loss:.5f}",flush=True)
 
 
