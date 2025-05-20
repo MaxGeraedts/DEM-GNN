@@ -276,7 +276,7 @@ def TopologyFromPlausibleTopology(super_topology,par_data,bc,tol):
             b = bc[wid,3:6]                                                  # Vector B: normal vector wall
             a1 = np.abs(np.sum(a*b))                                         # Vector a1(unit) : Absolute size projection A normal to wall
             mask[contact] = a1-Ri <= tol*Ri
-    print(mask)
+
     topology = super_topology[mask]
     return topology
 
