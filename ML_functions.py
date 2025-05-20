@@ -255,7 +255,7 @@ class Trainer:
                 np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Training_Loss"),train_loss)
                 np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Validation_Loss"),val_loss)
 
-            print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.5f}  |  Mean Validation Loss: {mean_val_loss:.5f}",flush=True)
+            print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.10f}  |  Mean Validation Loss: {mean_val_loss:.10f}",flush=True)
 
 
 def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,msg_dim=64,edge_dim=4):
