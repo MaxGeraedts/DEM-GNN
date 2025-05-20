@@ -10,7 +10,7 @@ aggregate       = False
 force_reload    = False
 train           = True
 dataset_name    = "2Sphere"
-model_ident     = "Model_2"
+model_ident     = "Model_3"
 
 if aggregate == True:
     data_dir = "/home/20182319/Data"
@@ -35,8 +35,8 @@ if train == True:
     
     trainer = Trainer(model, dataset_test,dataset_val,
                       batch_size=64,
-                      lr=0.0000001,
-                      epochs=500,
+                      lr=0.000001,
+                      epochs=1000,
                       model_name=f"{dataset_name}_{model_ident}")
     
     trainer.train_loop()

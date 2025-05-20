@@ -243,11 +243,13 @@ class Trainer:
             if mean_val_loss < best_model_loss:
                 best_model_loss = mean_val_loss
                 torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.model_name))
-
-            #print(f"\nEpoch {epoch}, Mean Train Loss: {mean_train_loss}, Mean Validation Loss: {mean_val_loss}")
+            
+            if epoch % 100 == 0:
+                np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Training_Loss"),train_loss)
+                np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Validation_Loss"),val_loss)
+                
             print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.5f}  |  Mean Validation Loss: {mean_val_loss:.5f}",flush=True)
-        np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Training_Loss"),train_loss)
-        np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Validation_Loss"),val_loss)
+
 
 def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,msg_dim=64,edge_dim=4):
     try: 
