@@ -93,7 +93,7 @@ class DEM_Dataset(InMemoryDataset):
             R_avg = sim[0][:,3].mean()
             super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
             for t in np.arange(len(sim)-1):
-                par_data = sim[t]
+                par_data = sim[t].copy()
                 standard_deviation = self.noise_factor*R_avg
                 noise = np.array(standard_deviation*torch.randn((par_data.shape[0],3)))
                 par_data[:,:3]+=noise
