@@ -48,7 +48,8 @@ class DEM_Dataset(InMemoryDataset):
                  force_reload=False,pre_transform=None, transform=None, pre_filter=None,
                  root: str = os.path.join(os.getcwd(),"Data"),
                  super_tol: int = 6,
-                 tol: int = 0):
+                 tol: float = 0,
+                 noise_factor: float = 0):
         
         self.raw_data_path = os.path.join(root,"raw")
         self.processed_data_path = os.path.join(root,"processed")
@@ -57,6 +58,7 @@ class DEM_Dataset(InMemoryDataset):
         self.mode = mode
         self.super_tol = super_tol
         self.tol = tol
+        self.noise_factor = noise_factor
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
         self.load(os.path.join(self.processed_data_path,self.processed_file_names[0]))
 
@@ -88,14 +90,19 @@ class DEM_Dataset(InMemoryDataset):
             simulations = self.pre_filter(simulations)
 
         for sim, top, bc in tqdm(zip(data_agr,top_agr,bc)):
-            #R_avg = sim[0][:,3].mean()
+            R_avg = sim[0][:,3].mean()
             super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
             for t in np.arange(len(sim)-1):
                 par_data = sim[t]
+                standard_deviation = self.noise_factor*R_avg
+                noise = np.array(standard_deviation*torch.randn((par_data.shape[0],3)))
+                par_data[:,:3]+=noise
+
                 label_data = sim[t+1]
                 BC_t = bc.copy()
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
                 topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
+
                 data = ToPytorchData(par_data,BC_t,0,topology,label_data)[0]
                 data_list.append(data)
 

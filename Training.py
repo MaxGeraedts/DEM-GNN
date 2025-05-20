@@ -7,10 +7,10 @@ from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo
 print(torch.cuda.is_available())
 
 aggregate       = False
-force_reload    = False
+force_reload    = True
 train           = True
 dataset_name    = "2Sphere"
-model_ident     = "Model_3"
+model_ident     = "Model_4"
 
 if aggregate == True:
     data_dir = "/home/20182319/Data"
@@ -20,9 +20,15 @@ if aggregate == True:
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 
-dataset_train     = DEM_Dataset(dataset_name,"train"   ,'delta', force_reload, pre_transform)
-dataset_val       = DEM_Dataset(dataset_name,"validate",'delta', force_reload, pre_transform)
-dataset_test      = DEM_Dataset(dataset_name,"test"    ,'delta', force_reload, pre_transform)
+[dataset_train, dataset_val, dataset_test]      = [DEM_Dataset(dataset_name,
+                                                               dataset_type,
+                                                               mode             = 'delta',
+                                                               force_reload     = force_reload,
+                                                               pre_transform    = pre_transform,
+                                                               super_tol        = 1,
+                                                               tol              = 0,
+                                                               noise_factor     = 0.01) 
+                                                               for dataset_type in ["train","validate","test"]]
 
 if train == True:
     model = GetModel(dataset_name,model_ident,
@@ -35,7 +41,7 @@ if train == True:
     
     trainer = Trainer(model, dataset_test,dataset_val,
                       batch_size=64,
-                      lr=0.000001,
+                      lr=0.00001,
                       epochs=1000,
                       model_name=f"{dataset_name}_{model_ident}")
     
