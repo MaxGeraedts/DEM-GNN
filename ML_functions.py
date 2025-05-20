@@ -15,7 +15,7 @@ from IPython.display import clear_output
 import matplotlib.pyplot as plt
 import json
 
-from Encoding import ToPytorchData, ConstructTopology
+from Encoding import ToPytorchData, ConstructTopology, TopologyFromPlausibleTopology
 
 # Dataset
 def GetScales(dataset):
@@ -46,13 +46,17 @@ class DEM_Dataset(InMemoryDataset):
                  Dataset_type: Literal["train","validate","test"],
                  mode: Literal["cart","delta"],
                  force_reload=False,pre_transform=None, transform=None, pre_filter=None,
-                 root: str = os.path.join(os.getcwd(),"Data")):
+                 root: str = os.path.join(os.getcwd(),"Data"),
+                 super_tol: int = 6,
+                 tol: int = 0):
         
         self.raw_data_path = os.path.join(root,"raw")
         self.processed_data_path = os.path.join(root,"processed")
         self.file_name = file_name
         self.Dataset_type = Dataset_type
         self.mode = mode
+        self.super_tol = super_tol
+        self.tol = tol
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
         self.load(os.path.join(self.processed_data_path,self.processed_file_names[0]))
 
@@ -85,14 +89,14 @@ class DEM_Dataset(InMemoryDataset):
 
         for sim, top, bc in tqdm(zip(data_agr,top_agr,bc)):
             #R_avg = sim[0][:,3].mean()
-            #topology = ConstructTopology(sim[0],bc,6*R_avg)-1
+            super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
             for t in np.arange(len(sim)-1):
                 par_data = sim[t]
                 label_data = sim[t+1]
-                topology = top[t]
+                topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
                 BC_t = bc.copy()
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
-                data = ToPytorchData(par_data,BC_t,0,label_data=label_data)[0]
+                data = ToPytorchData(par_data,BC_t,0,topology,label_data)[0]
                 data_list.append(data)
 
         if self.Dataset_type == "train":

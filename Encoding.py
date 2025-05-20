@@ -211,14 +211,14 @@ def WallParticleIntersection(point: np.ndarray,bc: np.ndarray,i: int,tol: float)
     Returns:
         list: Wall intersections
     """
-    topW = []
+    topology_wall = []
     for wid in range(len(bc)):
         a = bc[wid,:3]-point[:3]                                                # Vector A from particle P to point W on plane
         b = bc[wid,3:6]                                                         # Vector B: normal vector wall
         a1 = np.abs(np.sum(a*b))                                                # Vector a1(unit) : Absolute size projection A normal to wall
         if a1 - point[3] <= tol*point[3]:
-            topW.append([i+1,-(wid+1)])
-    return topW
+            topology_wall.append([i+1,-(wid+1)])
+    return topology_wall
 
 # Construct a topology from scratch
 def ConstructTopology(par_data,bc,tol):
@@ -232,23 +232,53 @@ def ConstructTopology(par_data,bc,tol):
     Returns:
         ndarray: Array of edge indeces describing a graph topology (MatlabIDX)
     """
-    topP, topW, top = [], [], []
+    topology_par, topology_wall = [], []
     for i in range(len(par_data)):
         Xi = par_data[i,:3]
         Ri = par_data[i,3]
         for j in range(i+1,len(par_data)):
             Xj = par_data[j,:3]
-            Rj = par_data[i,3]
+            Rj = par_data[j,3]
             if np.linalg.norm(Xi-Xj)-Ri-Rj <= tol*Ri:
-                topP.append([i+1,j+1])
+                topology_par.append([i+1,j+1])
         
-        topW_temp = WallParticleIntersection(par_data[i],bc,i,tol)
-        topW = np.append(topW,topW_temp)
+        topology_wall_temp = WallParticleIntersection(par_data[i],bc,i,tol)
+        topology_wall = np.append(topology_wall,topology_wall_temp)
 
-    topP = np.array(topP).reshape((-1,2))
-    topW = np.array(topW).reshape((-1,2))
-    top = np.concatenate([topP,topW]).astype(int)
-    return top
+    topology_par = np.array(topology_par).reshape((-1,2))
+    topology_wall = np.array(topology_wall).reshape((-1,2))
+    topology = np.concatenate([topology_par,topology_wall]).astype(int)
+    return topology
+
+def TopologyFromPlausibleTopology(super_topology,par_data,bc,tol):
+    """From a large topology of PLAUSIBLE contacts, particle info and boundary conditions, return a topology corresponding to actual contact at the corresponding timestep
+
+    Args:
+        super_topology (array): array of indices corresponding to contact plausible to occur in the entire simulation
+        par_data (array): array of particle data, including particle position and raddii 
+        bc (array): Array of Boundary planes representing boundary conditions at a timestep
+
+    Returns:
+        array: Lists actual physical contacts
+    """
+    mask = np.zeros((super_topology.shape[0])).astype(bool)
+    for contact,[i,j] in enumerate(super_topology):
+
+        if j>0:
+            [Xi,Xj] = [par_data[idx,:3] for idx in [i,j]]
+            [Ri,Rj] = [par_data[idx,3] for idx in [i,j]]
+            mask[contact] = np.linalg.norm(Xi-Xj)-(Ri+Rj) <= tol*(Ri+Rj)/2
+
+        if j<0:
+            Xi,Ri = par_data[i,:3],par_data[i,3]
+            wid = -j-2
+            a = bc[wid,:3]-Xi                                                # Vector A from particle P to point W on plane
+            b = bc[wid,3:6]                                                  # Vector B: normal vector wall
+            a1 = np.abs(np.sum(a*b))                                         # Vector a1(unit) : Absolute size projection A normal to wall
+            mask[contact] = a1-Ri <= tol*Ri
+    print(mask)
+    topology = super_topology[mask]
+    return topology
 
 # From list of particles and boundaries, generate model input data
 def GetEdgeIdx(top,real_idx):
