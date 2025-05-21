@@ -33,9 +33,9 @@ pre_transform = T.Compose([T.Cartesian(False),
 if train == True:
     model = GetModel(dataset_name,model_ident,
                      msg_num=3,
-                     msg_dim=64,
                      emb_dim=64,
-                     edge_dim=4)
+                     edge_dim=4,
+                     num_layers=2)
     
     SaveModelInfo(model,dataset_name,model_ident)
     
