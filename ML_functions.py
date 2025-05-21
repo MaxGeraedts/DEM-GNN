@@ -175,7 +175,7 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.conv = [None]* msg_num
         for k in range(msg_num):
             self.convs = torch.nn.ModuleList()
-            self.convs.append(RelPosConv(emb_dim=emb_dim,hidden_dim=hidden_dim,out_dim=emb_dim,num_layers=num_layers))
+            self.convs.append(RelPosConv(emb_dim=emb_dim,hidden_dim=hidden_dim,out_channels=emb_dim,num_layers=num_layers))
         self.decoder = MLP(in_channels=edge_dim,hidden_channels=hidden_dim,out_channels=out_dim,num_layers=num_layers)
         self.double()
         
