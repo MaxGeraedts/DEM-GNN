@@ -176,7 +176,6 @@ class GCONV_Model_RelPos(torch.nn.Module):
         for k in range(msg_num):
             self.conv[k] = RelPosConv(emb_dim,hidden_dim,emb_dim,num_layers)
             self.conv[k].double().to(torch.device('cuda' if torch.cuda.is_available()else 'cpu'))
-        self.decoder = MLP(emb_dim,out_dim)
         self.decoder = MLP(in_channels=edge_dim,hidden_channels=emb_dim,out_channels=emb_dim,num_layers=num_layers)
         self.double()
         
@@ -187,16 +186,6 @@ class GCONV_Model_RelPos(torch.nn.Module):
         edge_attr = F.relu(edge_attr)
         for k in range(self.msg_num):
             x = self.conv[k](x, edge_attr, edge_index)
-        #x = self.conv2(x, edge_attr, edge_index)
-        #x = F.relu(x)
-        #x = self.conv3(x, edge_attr, edge_index)
-        #x = F.relu(x)
-        #x = self.conv4(x, edge_attr, edge_index)
-        #x = F.relu(x)
-        #x = self.conv5(x, edge_attr, edge_index)
-        #x = F.relu(x)
-        #x = self.conv6(x, edge_attr, edge_index)
-        #x = F.relu(x)
         x= self.decoder(x)
         return x
     
