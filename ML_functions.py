@@ -174,19 +174,18 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.edge_embed = MLP(in_channels=edge_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers)
         self.conv = [None]* msg_num
         for k in range(msg_num):
-            self.conv[k] = RelPosConv(emb_dim,hidden_dim,emb_dim,num_layers)
-            self.conv[k].double().to(torch.device('cuda' if torch.cuda.is_available()else 'cpu'))
-        self.decoder = MLP(in_channels=edge_dim,hidden_channels=emb_dim,out_channels=out_dim,num_layers=num_layers)
+            self.convs = torch.nn.ModuleList()
+            self.convs.append(RelPosConv(emb_dim=emb_dim,hidden_dim=hidden_dim,out_dim=emb_dim,num_layers=num_layers))
+        self.decoder = MLP(in_channels=edge_dim,hidden_channels=hidden_dim,out_channels=out_dim,num_layers=num_layers)
         self.double()
         
     def forward(self,data):
         x, edge_attr, edge_index = data.x, data.edge_attr, data.edge_index
         x = self.node_embed(x)
         edge_attr = self.edge_embed(edge_attr)
-        edge_attr = F.relu(edge_attr)
-        for k in range(self.msg_num):
-            x = self.conv[k](x, edge_attr, edge_index)
-        x= self.decoder(x)
+        for conv in self.convs:
+            x = conv(x, edge_attr, edge_index)
+        x = self.decoder(x)
         return x
     
 # Training
