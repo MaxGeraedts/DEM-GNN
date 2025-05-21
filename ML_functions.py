@@ -105,7 +105,7 @@ class DEM_Dataset(InMemoryDataset):
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
                 topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
 
-                data = ToPytorchData(par_data,BC_t,0,topology,label_data,center=False)[0]
+                data = ToPytorchData(par_data,BC_t,0,topology,label_data,center=True)[0]
                 data_list.append(data)
 
         if self.Dataset_type == "train":
@@ -170,13 +170,12 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.edge_dim = edge_dim
         self.out_dim = out_dim
         self.num_layers = num_layers
-        self.node_embed = MLP(in_channels=node_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers)
-        self.edge_embed = MLP(in_channels=edge_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers)
-        self.conv = [None]* msg_num
+        self.node_embed = MLP(in_channels=node_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers,norm=None)
+        self.edge_embed = MLP(in_channels=edge_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers,norm=None)
+        self.convs = torch.nn.ModuleList()
         for k in range(msg_num):
-            self.convs = torch.nn.ModuleList()
             self.convs.append(RelPosConv(emb_dim=emb_dim,hidden_dim=hidden_dim,out_channels=emb_dim,num_layers=num_layers))
-        self.decoder = MLP([emb_dim,hidden_dim,out_dim])
+        self.decoder = MLP([emb_dim,hidden_dim,out_dim],norm=None)
         self.double()
         
     def forward(self,data):
