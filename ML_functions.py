@@ -2,7 +2,8 @@
 import torch
 import torch.nn.functional as F
 from torch_geometric.data import Batch, Data, DataLoader, InMemoryDataset
-from torch_geometric.nn import MessagePassing
+from torch_geometric.nn import MessagePassing, EdgeConv, GCNConv
+from torch_geometric.nn.models import MLP
 import torch_geometric.transforms as T
 
 import numpy as np
@@ -136,11 +137,16 @@ class NormalizePos(BaseTransform):
 
 # Model
 class RelPosConv(MessagePassing):
-    def __init__(self, emb_dim, msg_dim, out_channels, aggr = 'mean'):
+    def __init__(self, emb_dim, hidden_dim, out_channels,num_layers, aggr = 'mean'):
         super().__init__(aggr=aggr)
-        self.edge_mlp = torch.nn.Linear(emb_dim+emb_dim,msg_dim)
-        self.update_mlp = torch.nn.Linear(emb_dim+msg_dim,out_channels)
+        self.msg_mlp = MLP(in_channels=2*emb_dim,hidden_channels=hidden_dim,out_channels=out_channels,num_layers=num_layers)
+        self.update_mlp = MLP(in_channels=2*emb_dim,hidden_channels=hidden_dim,out_channels=out_channels,num_layers=num_layers)
         self.reset_parameters()
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        self.msg_mlp.reset_parameters()
+        self.update_mlp.reset_parameters()
 
     def forward(self,x,edge_attr,edge_index):
         out = self.propagate(edge_index,x=x,edge_attr=edge_attr)
@@ -148,43 +154,33 @@ class RelPosConv(MessagePassing):
     
     def message(self, x_j, edge_attr):
         tmp = torch.cat([x_j, edge_attr],dim=1)
-        return self.edge_mlp(tmp)
+        return self.msg_mlp(tmp)
     
     def update(self,aggr_out,x):
         cat = torch.cat([x, aggr_out],dim=1)
         return self.update_mlp(cat)
     
 class GCONV_Model_RelPos(torch.nn.Module):
-    def __init__(self,msg_num=3, emb_dim=64, msg_dim=64, node_dim=7, edge_dim=4, out_dim = 3):
+    def __init__(self,msg_num=3, emb_dim=64, hidden_dim=64, node_dim=7, edge_dim=4, out_dim = 3,num_layers = 2):
         super(GCONV_Model_RelPos,self).__init__()
         self.msg_num = msg_num
-        self.emb_dim = emb_dim
-        self.msg_dim = msg_dim
-        self.node_dim = node_dim
-        self.edge_dim = edge_dim
-        self.node_embed = torch.nn.Linear(node_dim,emb_dim)
-        self.edge_embed = torch.nn.Linear(edge_dim,emb_dim)
+        self.node_embed = MLP(in_channels=node_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers)
+        self.edge_embed = MLP(in_channels=edge_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers)
         self.conv = [None]* msg_num
         for k in range(msg_num):
-            self.conv[k] = RelPosConv(emb_dim,msg_dim,emb_dim)
+            self.conv[k] = RelPosConv(emb_dim,hidden_dim,emb_dim,num_layers)
             self.conv[k].double().to(torch.device('cuda' if torch.cuda.is_available()else 'cpu'))
-        #self.conv2 = RelPosConv(emb_dim,msg_dim,emb_dim)
-        #self.conv3 = RelPosConv(emb_dim,msg_dim,emb_dim)
-        #self.conv4 = RelPosConv(emb_dim,msg_dim,emb_dim)
-        #self.conv5 = RelPosConv(emb_dim,msg_dim,emb_dim)
-        #self.conv6 = RelPosConv(emb_dim,msg_dim,emb_dim)
-        self.decoder = torch.nn.Linear(emb_dim,out_dim)
+        self.decoder = MLP(emb_dim,out_dim)
+        self.decoder = MLP(in_channels=edge_dim,hidden_channels=emb_dim,out_channels=emb_dim,num_layers=num_layers)
         self.double()
         
     def forward(self,data):
         x, edge_attr, edge_index = data.x, data.edge_attr, data.edge_index
         x = self.node_embed(x)
-        x = F.relu(x)
         edge_attr = self.edge_embed(edge_attr)
         edge_attr = F.relu(edge_attr)
         for k in range(self.msg_num):
             x = self.conv[k](x, edge_attr, edge_index)
-            x = F.relu(x)
         #x = self.conv2(x, edge_attr, edge_index)
         #x = F.relu(x)
         #x = self.conv3(x, edge_attr, edge_index)
