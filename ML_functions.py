@@ -89,6 +89,7 @@ class DEM_Dataset(InMemoryDataset):
         if self.pre_filter is not None:
             simulations = self.pre_filter(simulations)
 
+        print(f"Collecting {self.Dataset_type} data")
         for sim, top, bc in tqdm(zip(data_agr,top_agr,bc)):
             R_avg = sim[0][:,3].mean()
             super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
@@ -103,7 +104,7 @@ class DEM_Dataset(InMemoryDataset):
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
                 topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
 
-                data = ToPytorchData(par_data,BC_t,0,topology,label_data)[0]
+                data = ToPytorchData(par_data,BC_t,0,topology,label_data,center=False)[0]
                 data_list.append(data)
 
         if self.Dataset_type == "train":
@@ -111,8 +112,9 @@ class DEM_Dataset(InMemoryDataset):
             torch.save(scale_pos,os.path.join(self.processed_data_path,f"{self.file_name}_scale_pos.pt"))
             torch.save(scale_x,os.path.join(self.processed_data_path,f"{self.file_name}_scale_x.pt"))
 
+        print(f"Pre-processing {self.Dataset_type} data")
         if self.pre_transform is not None:
-            self.pre_transform = T.Compose([NormalizePos(self.file_name),self.pre_transform])
+            #self.pre_transform = T.Compose([NormalizePos(self.file_name),self.pre_transform])
             data_list = [self.pre_transform(data) for data in tqdm(data_list)]   
                 
         self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))
