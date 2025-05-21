@@ -293,8 +293,8 @@ def PlotTrainingLoss(dataset_name,model_ident):
     fig, axs = plt.subplots(1,2,figsize=(12,5))
 
     for ax in axs:
-        ax.plot(training_loss[:500],label="Training Loss")
-        ax.plot(validation_loss[:500],label="Validation Loss")
+        ax.plot(training_loss,label="Training Loss")
+        ax.plot(validation_loss,label="Validation Loss")
         ax.set_xlabel('Epoch',fontweight='bold')
         ax.set_ylabel("Loss",fontweight='bold')
         ax.legend()
