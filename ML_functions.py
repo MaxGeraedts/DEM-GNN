@@ -115,7 +115,7 @@ class DEM_Dataset(InMemoryDataset):
 
         print(f"Pre-processing {self.Dataset_type} data")
         if self.pre_transform is not None:
-            #self.pre_transform = T.Compose([NormalizePos(self.file_name),self.pre_transform])
+            self.pre_transform = T.Compose([NormalizePos(self.file_name),self.pre_transform])
             data_list = [self.pre_transform(data) for data in tqdm(data_list)]   
                 
         self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))
@@ -164,6 +164,12 @@ class GCONV_Model_RelPos(torch.nn.Module):
     def __init__(self,msg_num=3, emb_dim=64, hidden_dim=64, node_dim=7, edge_dim=4, out_dim = 3,num_layers = 2):
         super(GCONV_Model_RelPos,self).__init__()
         self.msg_num = msg_num
+        self.emb_dim = emb_dim
+        self.hidden_dim = emb_dim
+        self.nod_dim = node_dim
+        self.edge_dim = edge_dim
+        self.out_dim = out_dim
+        self.num_layers = num_layers
         self.node_embed = MLP(in_channels=node_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers)
         self.edge_embed = MLP(in_channels=edge_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers)
         self.conv = [None]* msg_num
@@ -256,32 +262,36 @@ class Trainer:
             print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.10f}  |  Mean Validation Loss: {mean_val_loss:.10f}",flush=True)
 
 
-def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,msg_dim=64,edge_dim=4):
+def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2):
     try: 
         model_name = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}")
         with open(f"{model_name}.json") as json_file: 
             settings = json.load(json_file)
         model = GCONV_Model_RelPos(msg_num=settings["msg_num"],
                                    emb_dim=settings["emb_dim"],
-                                   msg_dim=settings["msg_dim"],
+                                   hidden_dim=settings["hidden_dim"],
                                    node_dim=settings["node_dim"],
-                                   edge_dim=settings["edge_dim"])
+                                   edge_dim=settings["edge_dim"],
+                                   num_layers=settings["num_layers"])
         model.load_state_dict(torch.load(model_name))
         print("Loaded model")
     except: 
         print("No Trained model")
         model = GCONV_Model_RelPos(msg_num=msg_num,
                                    emb_dim=emb_dim,
-                                   msg_dim=msg_dim,
-                                   edge_dim=edge_dim)
+                                   hidden_dim=emb_dim,
+                                   node_dim=node_dim,
+                                   edge_dim=edge_dim,
+                                   num_layers=num_layers)
     return model
 
 def SaveModelInfo(model,dataset_name,model_ident):
     ModelInfo = {"msg_num":model.msg_num,
                  "emb_dim":model.emb_dim,
-                 "msg_dim":model.msg_dim,
+                 "hidden_dim":model.hidden_dim,
                  "node_dim":model.node_dim,
-                 "edge_dim":model.edge_dim,}
+                 "edge_dim":model.edge_dim,
+                 "num_layers":model.num_layers}
     filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}.json")
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)

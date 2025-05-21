@@ -10,7 +10,7 @@ aggregate       = False
 force_reload    = True
 train           = True
 dataset_name    = "2Sphere"
-model_ident     = "Model_7"
+model_ident     = "NewModel_1"
 
 if aggregate == True:
     data_dir = "/home/20182319/Data"
@@ -27,14 +27,14 @@ pre_transform = T.Compose([T.Cartesian(False),
                                                                pre_transform    = pre_transform,
                                                                super_tol        = 1,
                                                                tol              = 0,
-                                                               noise_factor     = 0.1) 
+                                                               noise_factor     = 0) 
                                                                for dataset_type in ["train","validate","test"]]
 
 if train == True:
     model = GetModel(dataset_name,model_ident,
-                     msg_num=4,
-                     msg_dim=300,
-                     emb_dim=300,
+                     msg_num=3,
+                     msg_dim=64,
+                     emb_dim=64,
                      edge_dim=4)
     
     SaveModelInfo(model,dataset_name,model_ident)
