@@ -166,7 +166,7 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.msg_num = msg_num
         self.emb_dim = emb_dim
         self.hidden_dim = emb_dim
-        self.nod_dim = node_dim
+        self.node_dim = node_dim
         self.edge_dim = edge_dim
         self.out_dim = out_dim
         self.num_layers = num_layers
