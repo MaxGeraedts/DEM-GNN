@@ -41,7 +41,7 @@ class Rescale:
         self.y_mean = self.scales["y_mean"]
         self.y_std = self.scales["y_std"]
 
-    def __call__(self, output):
+    def __call__(self, output,device):
         """Rescale output based on training standardization statistics
 
         Args:
@@ -50,7 +50,9 @@ class Rescale:
         Returns:
             Tensor: Rescaled model output tensot
         """
-        return (output*self.y_std)+self.y_mean
+        output *= torch.tensor(self.y_std).to(device)
+        output += torch.tensor(self.y_mean).to(device)
+        return output
     
 
 class NormalizeData(T.BaseTransform):
@@ -300,7 +302,7 @@ class Trainer:
 def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2):
     try: 
         model_name = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}")
-        with open(f"{model_name}.json") as json_file: 
+        with open(f"{model_name}_ModelInfo.json") as json_file: 
             settings = json.load(json_file)
         model = GCONV_Model_RelPos(msg_num=settings["msg_num"],
                                    emb_dim=settings["emb_dim"],

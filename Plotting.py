@@ -207,7 +207,7 @@ def MakeGIF(datalist,gifname,fps=7,color='lightblue',deformation=False):
     plotter = pv.Plotter(notebook=False, off_screen=True)
     spheremesh = pv.merge(ParticleMesh(datalist[0],deformation=deformation))
     plotter.add_mesh(spheremesh, color=color, show_edges=False)
-
+    plotter.camera_position = 'xz'
     plotter.open_gif(f"{os.getcwd()}\\Figures\\{gifname}.gif",fps=fps)
 
     for data in tqdm(datalist):
@@ -215,6 +215,7 @@ def MakeGIF(datalist,gifname,fps=7,color='lightblue',deformation=False):
         plotter.write_frame()
 
     plotter.close()
+
 
 from Evaluation import AggregateForces
 def PlotFres(Fsum_GT,Fsum_ML):
