@@ -19,10 +19,51 @@ import json
 from Encoding import ToPytorchData, ConstructTopology, TopologyFromPlausibleTopology
 
 # Dataset
-def GetScales(dataset):
-    scale_pos = 1.0/dataset.pos.abs().max()
-    scale_x = 1/dataset.x.max(dim=0,keepdim=False)[0]
-    return scale_pos,scale_x
+def GetScales(dataset,dataset_name):
+    scales = {"scale_x":    dataset.x.max(dim=0,keepdim=False)[0],
+              "edge_mean":  dataset.edge_attr.mean(dim=0),
+              "edge_std":   dataset.edge_attr.std(dim=0),
+              "y_mean":     dataset.y.mean(dim=0),
+              "y_std":      dataset.y.mean(dim=0)}
+    
+    filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales.json")
+    with open(filename,'w') as f: 
+        json.dump(scales,f)
+    return scales
+
+class NormalizeData(T.BaseTransform):
+    r"""Scales node features to :math:`(0, 1)`. Standardizes edge attributes (zero mean, unit variance)
+    """
+    def __init__(self,dataset_name):
+        filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales.json")
+        with open(f"{filename}.json") as json_file: 
+            self.scales = json.load(json_file)
+
+    def forward(self, data: Data) -> Data:
+        data.x /= self.scales["scales_x"]
+
+        data.edge_attr -= self.scales["edge_mean"]
+        data.edge_attr /= self.scales["edge_std"]
+
+        if hasattr(data,'y'):
+            data.y -= self.scales["y_mean"]
+            data.y /= self.scales["y_std"]
+
+        return data
+    
+class NormalizePos(T.BaseTransform):
+    r"""Centers and normalizes node positions to the interval :math:`(-1, 1)`
+    (functional name: :obj:`normalize_scale`).
+    """
+    def __init__(self,file_name):
+        self.path_scale_pos = os.path.join(os.getcwd(),"Data","processed",f"{file_name}_scale_pos.pt")
+        self.path_scale_x   = os.path.join(os.getcwd(),"Data","processed",f"{file_name}_scale_x.pt")
+        self.scale_pos = torch.load(self.path_scale_pos)
+        self.scale_x   = torch.load(self.path_scale_x)
+    def forward(self, data: Data) -> Data:
+        data.pos *= self.scale_pos
+        data.x   *= self.scale_x
+        return data
 
 def DataMask(data,test_step: int = 20, val_step: int = 10):
     """Generates a boolean mask to split raw data into training, testing, and validation data
@@ -109,31 +150,14 @@ class DEM_Dataset(InMemoryDataset):
                 data_list.append(data)
 
         if self.Dataset_type == "train":
-            scale_pos, scale_x = GetScales(Batch.from_data_list(data_list))
-            torch.save(scale_pos,os.path.join(self.processed_data_path,f"{self.file_name}_scale_pos.pt"))
-            torch.save(scale_x,os.path.join(self.processed_data_path,f"{self.file_name}_scale_x.pt"))
+            scales  = GetScales(Batch.from_data_list(data_list),self.file_name)
 
         print(f"Pre-processing {self.Dataset_type} data")
         if self.pre_transform is not None:
-            self.pre_transform = T.Compose([NormalizePos(self.file_name),self.pre_transform])
+            self.pre_transform = T.Compose([NormalizeData(self.file_name),self.pre_transform])
             data_list = [self.pre_transform(data) for data in tqdm(data_list)]   
                 
         self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))
-
-from torch_geometric.transforms import BaseTransform
-class NormalizePos(BaseTransform):
-    r"""Centers and normalizes node positions to the interval :math:`(-1, 1)`
-    (functional name: :obj:`normalize_scale`).
-    """
-    def __init__(self,file_name):
-        self.path_scale_pos = os.path.join(os.getcwd(),"Data","processed",f"{file_name}_scale_pos.pt")
-        self.path_scale_x   = os.path.join(os.getcwd(),"Data","processed",f"{file_name}_scale_x.pt")
-        self.scale_pos = torch.load(self.path_scale_pos)
-        self.scale_x   = torch.load(self.path_scale_x)
-    def forward(self, data: Data) -> Data:
-        data.pos *= self.scale_pos
-        data.x   *= self.scale_x
-        return data
 
 # Model
 class RelPosConv(MessagePassing):
@@ -175,7 +199,7 @@ class GCONV_Model_RelPos(torch.nn.Module):
         self.convs = torch.nn.ModuleList()
         for k in range(msg_num):
             self.convs.append(RelPosConv(emb_dim=emb_dim,hidden_dim=hidden_dim,out_channels=emb_dim,num_layers=num_layers))
-        self.decoder = MLP([emb_dim,hidden_dim,out_dim],norm=None)
+        self.decoder = MLP(in_channels=emb_dim,hidden_channels=hidden_dim,out_channels=out_dim,num_layers=num_layers,norm=None)
         self.double()
         
     def forward(self,data):
@@ -279,7 +303,16 @@ def SaveModelInfo(model,dataset_name,model_ident):
                  "node_dim":model.node_dim,
                  "edge_dim":model.edge_dim,
                  "num_layers":model.num_layers}
-    filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}.json")
+    filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}_ModelInfo.json")
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)
 
+def SaveTrainingInfo(dataset,trainer):
+    TrainingInfo = {"super_tol":dataset.super_tol,
+                 "tol":dataset.tol,
+                 "noise_factor":dataset.noise_factor,
+                 "batch_size":trainer.batch_size,
+                 "learning_rate":trainer.lr}
+    filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_TrainingInfo.json")
+    with open(filename,'w') as f: 
+        json.dump(TrainingInfo,f)

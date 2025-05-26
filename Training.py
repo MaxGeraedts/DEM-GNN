@@ -2,7 +2,7 @@ import torch.cuda
 import torch_geometric.transforms as T
 
 from Encoding import AggregateRawData, save
-from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, NormalizePos
+from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, SaveTrainingInfo
 
 print(torch.cuda.is_available())
 
@@ -33,16 +33,18 @@ pre_transform = T.Compose([T.Cartesian(False),
 if train == True:
     model = GetModel(dataset_name,model_ident,
                      msg_num=3,
-                     emb_dim=128,
+                     emb_dim=64,
                      edge_dim=4,
-                     num_layers=2)
+                     num_layers=3)
     
     SaveModelInfo(model,dataset_name,model_ident)
     
-    trainer = Trainer(model, dataset_test,dataset_val,
+    trainer = Trainer(model, dataset_train,dataset_val,
                       batch_size=16,
                       lr=0.000001,
                       epochs=1500,
                       model_name=f"{dataset_name}_{model_ident}")
     
     trainer.train_loop()
+
+    SaveTrainingInfo(dataset_train,trainer)
