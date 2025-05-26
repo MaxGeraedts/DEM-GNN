@@ -7,9 +7,9 @@ from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, SaveTrai
 print(torch.cuda.is_available())
 
 aggregate       = False
-force_reload    = False
+force_reload    = True
 train           = True
-dataset_name    = "2Sphere"
+dataset_name    = "N400_Mono"
 model_ident     = "NewModel_1"
 
 if aggregate == True:
@@ -25,14 +25,14 @@ pre_transform = T.Compose([T.Cartesian(False),
                                                                mode             = 'delta',
                                                                force_reload     = force_reload,
                                                                pre_transform    = pre_transform,
-                                                               super_tol        = 1,
+                                                               super_tol        = 6,
                                                                tol              = 0,
                                                                noise_factor     = 0) 
                                                                for dataset_type in ["train","validate","test"]]
 
 if train == True:
     model = GetModel(dataset_name,model_ident,
-                     msg_num=3,
+                     msg_num=8,
                      emb_dim=64,
                      edge_dim=4,
                      num_layers=2)
@@ -40,8 +40,8 @@ if train == True:
     SaveModelInfo(model,dataset_name,model_ident)
     
     trainer = Trainer(model, dataset_train,dataset_val,
-                      batch_size=128,
-                      lr=0.000001,
+                      batch_size=32,
+                      lr=0.0000001,
                       epochs=1000,
                       model_name=f"{dataset_name}_{model_ident}")
     
