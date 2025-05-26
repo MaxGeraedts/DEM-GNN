@@ -296,7 +296,7 @@ def GetEdgeIdx(top,real_idx):
     edge_index = torch.from_numpy(np.concatenate((top_r,top_v),axis=0)).long().t().contiguous()
     return edge_index 
     
-def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None,center=True):
+def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None,center=False):
     """Get pytorch data object from particle properties and boundary conditions
 
     Args:

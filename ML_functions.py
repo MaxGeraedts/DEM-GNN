@@ -31,6 +31,28 @@ def GetScales(dataset,dataset_name):
         json.dump(scales,f)
     return scales
 
+class Rescale:
+    """Rescale output based on standardization during training
+    """
+    def __init__(self,dataset_name):
+        self.filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales")
+        with open(f"{self.filename}.json") as json_file: 
+            self.scales = json.load(json_file)
+        self.y_mean = self.scales["y_mean"]
+        self.y_std = self.scales["y_std"]
+
+    def __call__(self, output):
+        """Rescale output based on training standardization statistics
+
+        Args:
+            output (Tensor): Model output tensor
+
+        Returns:
+            Tensor: Rescaled model output tensot
+        """
+        return (output*self.y_std)+self.y_mean
+    
+
 class NormalizeData(T.BaseTransform):
     r"""Scales node features to :math:`(0, 1)`. Standardizes edge attributes and optionally labels (zero mean, unit variance)
     """
@@ -146,7 +168,7 @@ class DEM_Dataset(InMemoryDataset):
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
                 topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
 
-                data = ToPytorchData(par_data,BC_t,0,topology,label_data,center=True)[0]
+                data = ToPytorchData(par_data,BC_t,0,topology,label_data)[0]
                 data_list.append(data)
 
         print(f"Pre-processing {self.Dataset_type} data")
