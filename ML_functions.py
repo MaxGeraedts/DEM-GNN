@@ -40,7 +40,7 @@ class NormalizeData(T.BaseTransform):
             self.scales = json.load(json_file)
 
     def forward(self, data: Data) -> Data:
-        data.x /= torch.tensor(self.scales["scales_x"])
+        data.x /= torch.tensor(self.scales["scale_x"])
 
         data.edge_attr -= torch.tensor(self.scales["edge_mean"])
         data.edge_attr /= torch.tensor(self.scales["edge_std"])
