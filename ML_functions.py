@@ -35,7 +35,7 @@ class NormalizeData(T.BaseTransform):
     r"""Scales node features to :math:`(0, 1)`. Standardizes edge attributes and optionally labels (zero mean, unit variance)
     """
     def __init__(self,dataset_name):
-        filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales.json")
+        filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales")
         with open(f"{filename}.json") as json_file: 
             self.scales = json.load(json_file)
 
