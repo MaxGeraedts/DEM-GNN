@@ -20,11 +20,11 @@ from Encoding import ToPytorchData, ConstructTopology, TopologyFromPlausibleTopo
 
 # Dataset
 def GetScales(dataset,dataset_name):
-    scales = {"scale_x":    dataset.x.max(dim=0,keepdim=False)[0],
-              "edge_mean":  dataset.edge_attr.mean(dim=0),
-              "edge_std":   dataset.edge_attr.std(dim=0),
-              "y_mean":     dataset.y.mean(dim=0),
-              "y_std":      dataset.y.mean(dim=0)}
+    scales = {"scale_x":    dataset.x.max(dim=0,keepdim=False)[0].numpy(),
+              "edge_mean":  dataset.edge_attr.mean(dim=0).numpy(),
+              "edge_std":   dataset.edge_attr.std(dim=0).numpy(),
+              "y_mean":     dataset.y.mean(dim=0).numpy(),
+              "y_std":      dataset.y.mean(dim=0).numpy()}
     
     filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales.json")
     with open(filename,'w') as f: 
