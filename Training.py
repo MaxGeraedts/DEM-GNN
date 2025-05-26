@@ -7,7 +7,7 @@ from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, SaveTrai
 print(torch.cuda.is_available())
 
 aggregate       = False
-force_reload    = True
+force_reload    = False
 train           = True
 dataset_name    = "2Sphere"
 model_ident     = "NewModel_1"
@@ -35,12 +35,12 @@ if train == True:
                      msg_num=3,
                      emb_dim=64,
                      edge_dim=4,
-                     num_layers=3)
+                     num_layers=2)
     
     SaveModelInfo(model,dataset_name,model_ident)
     
     trainer = Trainer(model, dataset_train,dataset_val,
-                      batch_size=16,
+                      batch_size=128,
                       lr=0.000001,
                       epochs=1000,
                       model_name=f"{dataset_name}_{model_ident}")
