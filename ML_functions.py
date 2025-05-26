@@ -20,11 +20,11 @@ from Encoding import ToPytorchData, ConstructTopology, TopologyFromPlausibleTopo
 
 # Dataset
 def GetScales(dataset,dataset_name):
-    scales = {"scale_x":    dataset.x.max(dim=0,keepdim=False)[0].numpy(),
-              "edge_mean":  dataset.edge_attr.mean(dim=0).numpy(),
-              "edge_std":   dataset.edge_attr.std(dim=0).numpy(),
-              "y_mean":     dataset.y.mean(dim=0).numpy(),
-              "y_std":      dataset.y.mean(dim=0).numpy()}
+    scales = {"scale_x":    dataset.x.max(dim=0,keepdim=False)[0].tolist(),
+              "edge_mean":  dataset.edge_attr.mean(dim=0).tolist(),
+              "edge_std":   dataset.edge_attr.std(dim=0).tolist(),
+              "y_mean":     dataset.y.mean(dim=0).tolist(),
+              "y_std":      dataset.y.mean(dim=0).tolist()}
     
     filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales.json")
     with open(filename,'w') as f: 
@@ -32,7 +32,7 @@ def GetScales(dataset,dataset_name):
     return scales
 
 class NormalizeData(T.BaseTransform):
-    r"""Scales node features to :math:`(0, 1)`. Standardizes edge attributes (zero mean, unit variance)
+    r"""Scales node features to :math:`(0, 1)`. Standardizes edge attributes and optionally labels (zero mean, unit variance)
     """
     def __init__(self,dataset_name):
         filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales.json")
@@ -40,14 +40,14 @@ class NormalizeData(T.BaseTransform):
             self.scales = json.load(json_file)
 
     def forward(self, data: Data) -> Data:
-        data.x /= self.scales["scales_x"]
+        data.x /= torch.tensor(self.scales["scales_x"])
 
-        data.edge_attr -= self.scales["edge_mean"]
-        data.edge_attr /= self.scales["edge_std"]
+        data.edge_attr -= torch.tensor(self.scales["edge_mean"])
+        data.edge_attr /= torch.tensor(self.scales["edge_std"])
 
         if hasattr(data,'y'):
-            data.y -= self.scales["y_mean"]
-            data.y /= self.scales["y_std"]
+            data.y -= torch.tensor(self.scales["y_mean"])
+            data.y /= torch.tensor(self.scales["y_std"])
 
         return data
     
@@ -132,7 +132,7 @@ class DEM_Dataset(InMemoryDataset):
             simulations = self.pre_filter(simulations)
 
         print(f"Collecting {self.Dataset_type} data")
-        for sim, top, bc in tqdm(zip(data_agr,top_agr,bc)):
+        for sim, top, bc in tqdm(zip(data_agr,top_agr,bc),total=bc.shape[0]):
             R_avg = sim[0][:,3].mean()
             super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
             for t in np.arange(len(sim)-1):
