@@ -156,7 +156,7 @@ class DEM_Dataset(InMemoryDataset):
         print(f"Normalizing {self.Dataset_type} data")    
         if self.Dataset_type == "train":
             GetScales(Batch.from_data_list(data_list),self.file_name)
-        self.normalize() = NormalizeData(self.file_name)
+        self.normalize = NormalizeData(self.file_name)
         data_list = [self.normalize(data) for data in tqdm(data_list)]
                 
         self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))
