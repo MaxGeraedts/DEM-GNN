@@ -149,13 +149,15 @@ class DEM_Dataset(InMemoryDataset):
                 data = ToPytorchData(par_data,BC_t,0,topology,label_data,center=True)[0]
                 data_list.append(data)
 
-        if self.Dataset_type == "train":
-            scales  = GetScales(Batch.from_data_list(data_list),self.file_name)
-
         print(f"Pre-processing {self.Dataset_type} data")
         if self.pre_transform is not None:
-            self.pre_transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)])
-            data_list = [self.pre_transform(data) for data in tqdm(data_list)]   
+            data_list = [self.pre_transform(data) for data in tqdm(data_list)]
+
+        print(f"Normalizing {self.Dataset_type} data")    
+        if self.Dataset_type == "train":
+            GetScales(Batch.from_data_list(data_list),self.file_name)
+        self.normalize() = NormalizeData(self.file_name)
+        data_list = [self.normalize(data) for data in tqdm(data_list)]
                 
         self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))
 
