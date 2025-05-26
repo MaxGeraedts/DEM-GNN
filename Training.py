@@ -2,7 +2,7 @@ import torch.cuda
 import torch_geometric.transforms as T
 
 from Encoding import AggregateRawData, save
-from ML_functions import DEM_Dataset, Trainer, NormalizeData, GetModel, SaveModelInfo, SaveTrainingInfo
+from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, SaveTrainingInfo
 
 print(torch.cuda.is_available())
 
@@ -25,7 +25,6 @@ pre_transform = T.Compose([T.Cartesian(False),
                                                                mode             = 'delta',
                                                                force_reload     = force_reload,
                                                                pre_transform    = pre_transform,
-                                                               transfom         = NormalizeData(dataset_name),
                                                                super_tol        = 1,
                                                                tol              = 0,
                                                                noise_factor     = 0) 
