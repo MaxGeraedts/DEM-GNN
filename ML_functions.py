@@ -24,7 +24,7 @@ def GetScales(dataset,dataset_name):
               "edge_mean":  dataset.edge_attr.mean(dim=0).tolist(),
               "edge_std":   dataset.edge_attr.std(dim=0).tolist(),
               "y_mean":     dataset.y.mean(dim=0).tolist(),
-              "y_std":      dataset.y.mean(dim=0).tolist()}
+              "y_std":      dataset.y.std(dim=0).tolist()}
     
     filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales.json")
     with open(filename,'w') as f: 
