@@ -10,7 +10,7 @@ aggregate       = False
 force_reload    = True
 train           = True
 dataset_name    = "2Sphere"
-model_ident     = "NewModel_2"
+model_ident     = "NewModel_1"
 
 if aggregate == True:
     data_dir = "/home/20182319/Data"
@@ -27,7 +27,7 @@ pre_transform = T.Compose([T.Cartesian(False),
                                                                pre_transform    = pre_transform,
                                                                super_tol        = 1,
                                                                tol              = 0,
-                                                               noise_factor     = 0.01) 
+                                                               noise_factor     = 0) 
                                                                for dataset_type in ["train","validate","test"]]
 
 if train == True:
@@ -42,7 +42,7 @@ if train == True:
     trainer = Trainer(model, dataset_train,dataset_val,
                       batch_size=16,
                       lr=0.000001,
-                      epochs=1500,
+                      epochs=1000,
                       model_name=f"{dataset_name}_{model_ident}")
     
     trainer.train_loop()
