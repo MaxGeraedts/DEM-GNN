@@ -154,6 +154,7 @@ class DEM_Dataset(InMemoryDataset):
 
         print(f"Pre-processing {self.Dataset_type} data")
         if self.pre_transform is not None:
+            self.pre_transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)])
             data_list = [self.pre_transform(data) for data in tqdm(data_list)]   
                 
         self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))
