@@ -161,9 +161,11 @@ class DEM_Dataset(InMemoryDataset):
             super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
             for t in np.arange(len(sim)-1):
                 par_data = sim[t].copy()
-                standard_deviation = self.noise_factor*R_avg
-                noise = np.array(standard_deviation*torch.randn((par_data.shape[0],3)))
-                par_data[:,:3]+=noise
+                
+                if self.noise_factor > 0:
+                    standard_deviation = self.noise_factor*R_avg
+                    noise = np.array(standard_deviation*torch.randn((par_data.shape[0],3)))
+                    par_data[:,:3]+=noise
 
                 label_data = sim[t+1]
                 BC_t = bc.copy()
