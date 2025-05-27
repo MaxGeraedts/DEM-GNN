@@ -95,13 +95,18 @@ def PlotGraphComparison(t,Rollout,sample_idx,tol,plot_lines=True):
 ## Plot two particles system
 
 # Plot coordinates in cartesian space for a given dimension
-def PlotAxes(bc_rollout,real_rollout,ML_rollout,dim,ax):
+def PlotAxes(bc_rollout,real_rollout,ML_rollout,dim,ax,normalize):
     r = real_rollout[0][0,3]
+    if normalize == False:
+        r = 1
+
     real = []
     for particles in real_rollout:
         real.append([particles[0,dim],particles[1,dim]])
+
     real = np.array(real)
     coorstr = ['X','Y','Z']
+
     ax.plot(bc_rollout[:,dim,dim]/r,'black')
     ax.plot(bc_rollout[:,dim+3,dim]/r,'black',label='Wall')
     ax.plot(real_rollout[:,0,dim]/r, 'red', label='DEM Prediction')
@@ -122,7 +127,7 @@ def DataListToPositionArray(Rollout,datalist):
     return data_array
 
 # Plot all three cartesion dimensions
-def PlotXYZ(Rollouts,t_max):
+def PlotXYZ(Rollouts: object,t_max: int,normalize: bool):
     fig, axes = plt.subplots(1,3,sharey=True)
     fig.set_figwidth(19)
     ML_data_array = DataListToPositionArray(Rollouts,Rollouts.ML_rollout)
@@ -131,7 +136,7 @@ def PlotXYZ(Rollouts,t_max):
         PlotAxes(Rollouts.BC_rollout,
                 DEM_data_array[:min(100,t_max)],
                 ML_data_array[:t_max],
-                i,ax)
+                i,ax, normalize)
         ax.set_xlim(xmin=0,xmax=t_max)
 
 ## Render deformed particles
@@ -299,7 +304,8 @@ def PlotTrainingLoss(dataset_name,model_ident):
         ax.set_xlabel('Epoch',fontweight='bold')
         ax.set_ylabel("Loss",fontweight='bold')
         ax.legend()
-
+    
+    #axs[0].set_ylim(ymin=0)
     axs[1].set_yscale('log')
     axs[1].set_title("Logarithmic Scale")
     axs[0].set_title("Linear Scale")

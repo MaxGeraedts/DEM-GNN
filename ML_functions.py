@@ -68,8 +68,8 @@ class NormalizeData(T.BaseTransform):
 
         data.edge_attr -= torch.tensor(self.scales["edge_mean"])
         data.edge_attr /= torch.tensor(self.scales["edge_std"])
-
-        if hasattr(data,'y'):
+        
+        if data.y is not None:
             data.y -= torch.tensor(self.scales["y_mean"])
             data.y /= torch.tensor(self.scales["y_std"])
 
