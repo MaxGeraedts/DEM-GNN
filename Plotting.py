@@ -89,7 +89,6 @@ def PlotGraphComparison(t,Rollout,sample_idx,tol,plot_lines=True):
     for ax in axes:
         PlotBoundaryBox(Rollout.BC_rollout[0],ax,"dimgrey","--",2)
         PlotBoundaryBox(Rollout.BC_rollout[t],ax,"black","-",2)
-    
     return fig
 
 ## Plot two particles system
@@ -110,9 +109,9 @@ def PlotAxes(bc_rollout,real_rollout,ML_rollout,dim,ax,normalize):
     ax.plot(bc_rollout[:,dim,dim]/r,'black')
     ax.plot(bc_rollout[:,dim+3,dim]/r,'black',label='Wall')
     ax.plot(real_rollout[:,0,dim]/r, 'red', label='DEM Prediction')
-    ax.plot(real_rollout[:,1,dim]/r, 'blue')
+    ax.plot(real_rollout[:,1,dim]/r, 'blue', label='DEM Prediction')
     ax.plot(ML_rollout[:,0,dim]/r, 'red', linestyle='dashed', label='ML Prediction')
-    ax.plot(ML_rollout[:,1,dim]/r, 'blue', linestyle='dashed')
+    ax.plot(ML_rollout[:,1,dim]/r, 'blue', linestyle='dashed', label='ML Prediction')
     ax.set(xlabel='Timestep',ylabel=f'{coorstr[dim]} Coordinate (R normalized)')
     ax.set_title(f'{coorstr[dim]} Coordinate')
 
@@ -138,6 +137,7 @@ def PlotXYZ(Rollouts: object,t_max: int,normalize: bool):
                 ML_data_array[:t_max],
                 i,ax, normalize)
         ax.set_xlim(xmin=0,xmax=t_max)
+    axes[1].legend()
 
 ## Render deformed particles
 from Evaluation import GetAllContactpoints, GetContactPerParticle
