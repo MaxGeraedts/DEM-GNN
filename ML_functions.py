@@ -1,7 +1,8 @@
 # Imports
 import torch
 import torch.nn.functional as F
-from torch_geometric.data import Batch, Data, DataLoader, InMemoryDataset
+from torch_geometric.data import Batch, Data, InMemoryDataset
+from torch_geometric.loader import DataLoader
 from torch_geometric.nn import MessagePassing, EdgeConv, GCNConv
 from torch_geometric.nn.models import MLP
 import torch_geometric.transforms as T
@@ -176,7 +177,7 @@ class DEM_Dataset(InMemoryDataset):
                 topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
 
                 data = ToPytorchData(par_data,BC_t,0,topology,label_data)[0]
-                data.Nroll = Nroll
+                data.push_forward_steps = Nroll
                 data_list.append(data)
 
         print(f"Pre-processing {self.Dataset_type} data")
