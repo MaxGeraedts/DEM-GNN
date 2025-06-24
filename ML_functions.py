@@ -167,12 +167,16 @@ class DEM_Dataset(InMemoryDataset):
                     noise = np.array(standard_deviation*torch.randn((par_data.shape[0],3)))
                     par_data[:,:3]+=noise
 
-                label_data = sim[t+1]
+                Nroll = np.random.randint(0,4)
+                Nroll = min(Nroll,len(sim)-2-t)
+                label_data = sim[t+Nroll+1][:3]-sim[t+Nroll][:3]
+
                 BC_t = bc.copy()
                 BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
                 topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
 
                 data = ToPytorchData(par_data,BC_t,0,topology,label_data)[0]
+                data.Nroll = Nroll
                 data_list.append(data)
 
         print(f"Pre-processing {self.Dataset_type} data")
