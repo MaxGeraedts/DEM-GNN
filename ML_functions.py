@@ -17,7 +17,98 @@ from IPython.display import clear_output
 import matplotlib.pyplot as plt
 import json
 
-from Encoding import ToPytorchData, ConstructTopology, TopologyFromPlausibleTopology
+from Encoding import ToPytorchData, ConstructTopology, TopologyFromPlausibleTopology, GetLength, load
+# Rollout
+def MaskTestData(dataset_name,dataset_type: Literal["train","validate","test"]):
+    """Masks out testdata from rawdata array
+
+    Args:
+        dataset_name (string): Name of the dataset
+
+    Returns:
+        tuple: [data, top, bc]
+    """
+    type_dic= {"train": 0, "validate":1, "test":2}
+    loaded_data = load(dataset_name)
+    mask = DataMask(loaded_data[0],)[type_dic[dataset_type]]
+    test_data = [data[mask] for data in loaded_data]
+    return test_data
+
+class LearnedSimulator:
+    def __init__(self,i:int,model,data_agr, top_agr,BC_agr,scale_function,super_tol:int,tol:int,transform,timesteps:int=100):
+        self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
+        self.BC = BC_agr[i].copy()
+        self.par_data = data_agr[i].copy()
+        self.topology = top_agr[i].copy()
+        self.model = model.to(self.device)
+        self.rescale = scale_function
+        self.timesteps = timesteps
+        self.super_tol = super_tol
+        self.tol = tol
+        self.transform = transform
+
+    def BCrollout(self):
+        print("Calculating BC")
+        BC_rollout = np.empty((GetLength(self.par_data),6,9))
+        BC_t=np.copy(self.BC)
+        for t in trange(GetLength(self.par_data)):
+            BC_t[:,:3] = self.BC[:,:3]+(t+1)*self.BC[:,-3:] 
+            BC_rollout[t] = BC_t
+        return BC_rollout
+    
+    def GroundTruth_Rollout(self):
+        print("Collecting Ground Truth Rollout")
+        GroundTruth = np.empty(GetLength(self.par_data),dtype=object)
+        for t in trange(GetLength(self.par_data)):
+            MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,self.par_data[t],self.BC_rollout[t],self.tol)
+            GroundTruth[t] = ToPytorchData(self.par_data[t],self.BC_rollout[t],self.tol,MatlabTopology)[0]
+            GroundTruth[t].MatlabTopology = MatlabTopology
+        return GroundTruth
+    
+    def Rollout_Step(self,par_inp, BC,MatlabTopology):
+        # Update Boundary conditions
+        BC[:,:3] += BC[:,-3:]
+
+        # Convert raw data to PyTorch Graphdata
+        input_data = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
+        if self.transform is not None: input_data = self.transform(input_data)
+        input_data.to(self.device)
+
+        # Run ML Model
+        output = self.model(input_data)
+
+        # With displacement vectors update particle positions and topology
+        output = self.rescale(output,self.device)
+        par_inp[:,:3] = par_inp[:,:3]+output[input_data.mask].cpu().numpy()
+        MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
+
+        return output, par_inp, BC, MatlabTopology
+    
+    def MLRollout(self):
+        print("Calculating Learned Rollout")
+        with torch.inference_mode():
+            # Initiate Rollout
+            ML_Rollout = np.empty((self.timesteps),dtype=object)
+            par_inp = self.par_data[0]
+            BC = self.BC
+            MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
+            ML_Rollout[0] = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
+            ML_Rollout[0].MatlabTopology = MatlabTopology
+
+            # Rollout
+            for t in tqdm(range(1,self.timesteps),initial=1):
+                output, par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology)
+                # Save equilibrium positions
+                ML_Rollout[t] = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
+                ML_Rollout[t].MatlabTopology = MatlabTopology
+
+        return ML_Rollout
+
+    def Rollout(self):
+        self.BC_rollout = self.BCrollout()
+        self.super_topology = ConstructTopology(self.par_data[0],self.BC_rollout[0],self.super_tol)-1
+        self.GroundTruth = self.GroundTruth_Rollout()
+        self.ML_rollout = self.MLRollout()
 
 # Dataset
 def GetScales(dataset,dataset_name):
