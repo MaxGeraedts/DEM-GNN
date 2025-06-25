@@ -1,7 +1,8 @@
 # Imports
 import torch
 import torch.nn.functional as F
-from torch_geometric.data import Batch, Data, DataLoader, InMemoryDataset
+from torch_geometric.data import Batch, Data, InMemoryDataset
+from torch_geometric.loader import DataLoader
 from torch_geometric.nn import MessagePassing, EdgeConv, GCNConv
 from torch_geometric.nn.models import MLP
 import torch_geometric.transforms as T
