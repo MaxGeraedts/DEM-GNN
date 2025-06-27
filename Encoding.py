@@ -307,27 +307,28 @@ def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None,center=Fals
     Returns:
         Data: Pytorch data object for model input
     """
-    if topology is None:
-        topology = ConstructTopology(par_data,bc,tol)-1
+    with torch.no_grad():
+        if topology is None:
+            topology = ConstructTopology(par_data,bc,tol)-1
 
-    EncodedParticles, EncodedTopology = EncodeNodes(par_data,topology,bc)
+        EncodedParticles, EncodedTopology = EncodeNodes(par_data,topology,bc)
 
-    real_idx = EncodedParticles[:,-1:].squeeze().nonzero()
-    RealParticleMask = np.squeeze(EncodedParticles[:,-1:]==1)
-    TorchData = torch.from_numpy(EncodedParticles)
-    TorchTopology = GetEdgeIdx(EncodedTopology,real_idx) 
-    edge_mask = np.all(np.isin(TorchTopology, real_idx),axis=0)
-    
-    data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask,edge_mask=edge_mask)
+        real_idx = EncodedParticles[:,-1:].squeeze().nonzero()
+        RealParticleMask = np.squeeze(EncodedParticles[:,-1:]==1)
+        TorchData = torch.from_numpy(EncodedParticles)
+        TorchTopology = GetEdgeIdx(EncodedTopology,real_idx) 
+        edge_mask = np.all(np.isin(TorchTopology, real_idx),axis=0)
+        
+        data = Data(pos=TorchData[:,:3],x=TorchData[:,3:],edge_index=TorchTopology,mask=RealParticleMask,edge_mask=edge_mask)
 
-    if label_data is not None:
-        y_abs = label_data[real_idx,:3].astype(float)
-        y = torch.from_numpy(y_abs)-TorchData[RealParticleMask,:3]
-        data.y = y.squeeze()
+        if label_data is not None:
+            y_abs = label_data[real_idx,:3].astype(float)
+            y = torch.from_numpy(y_abs)-TorchData[RealParticleMask,:3]
+            data.y = y.squeeze()
 
-    if center == True:
-        center = T.Center()
-        data = center(data)
+        if center == True:
+            center = T.Center()
+            data = center(data)
 
     return data, topology
 

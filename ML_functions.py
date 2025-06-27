@@ -91,6 +91,7 @@ class LearnedSimulator:
             ML_Rollout = np.empty((self.timesteps),dtype=object)
             par_inp = self.par_data[0]
             BC = self.BC
+            BC[:,:3] += BC[:,-3:]
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
             ML_Rollout[0] = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
             ML_Rollout[0].MatlabTopology = MatlabTopology
@@ -233,7 +234,11 @@ class DEM_Dataset(InMemoryDataset):
     
     @property
     def processed_file_names(self):
-        return [f"{self.file_name}_{self.Dataset_type}.pt"]
+        if self.forward_step_max > 0: 
+            processed_file_name =f"{self.file_name}_{self.Dataset_type}_Push.pt"
+        else:
+            processed_file_name =f"{self.file_name}_{self.Dataset_type}.pt"
+        return [processed_file_name]
     
     def download(self):
         pass
@@ -260,28 +265,29 @@ class DEM_Dataset(InMemoryDataset):
         print(f"Collecting {self.Dataset_type} data")
         for sim, top, bc in tqdm(zip(data_agr,top_agr,bc),total=bc.shape[0]):
             R_avg = sim[0][:,3].mean()
-            super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
+            self.super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
             for t in np.arange(len(sim)-1):
                 par_inp = sim[t].copy()
                 BC = bc.copy()
-                BC[:,:3] = bc[:,:3]+(t)*bc[:,-3:]
+                BC[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
+
                 if self.forward_step_max > 0:
                     push_forward_steps = np.random.randint(0,self.forward_step_max+1)
                     push_forward_steps = min(push_forward_steps,len(sim)-t-2)
+                    MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
                     for step in range(push_forward_steps):
                         par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology)
-
+                    
                 if self.noise_factor > 0:
                     standard_deviation = self.noise_factor*R_avg
-                    noise = np.array(standard_deviation*torch.randn((par_data.shape[0],3)))
-                    par_data[:,:3]+=noise
+                    noise = np.array(standard_deviation*torch.randn((par_inp.shape[0],3)))
+                    par_inp[:,:3]+=noise
 
-                label_data = sim[t+1]
-                BC_t = bc.copy()
-                BC_t[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
-                topology = TopologyFromPlausibleTopology(super_topology,par_data,BC_t,self.tol)
+                BC[:,:3] += BC[:,-3:]
+                label_data = sim[t+push_forward_steps+1]
 
-                data = ToPytorchData(par_data,BC_t,0,topology,label_data)[0]
+                data = ToPytorchData(par_inp,BC,0,MatlabTopology,label_data)[0]
+                data.push_forward_steps = push_forward_steps
                 data_list.append(data)
 
         print(f"Pre-processing {self.Dataset_type} data")
@@ -289,7 +295,7 @@ class DEM_Dataset(InMemoryDataset):
             data_list = [self.pre_transform(data) for data in tqdm(data_list)]
 
         print(f"Normalizing {self.Dataset_type} data")    
-        if self.Dataset_type == "train":
+        if self.Dataset_type == "train" & self.forward_step_max > 0:
             GetScales(Batch.from_data_list(data_list),self.file_name)
         self.normalize = NormalizeData(self.file_name)
         data_list = [self.normalize(data) for data in tqdm(data_list)]
