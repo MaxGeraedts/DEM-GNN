@@ -416,10 +416,10 @@ class Trainer:
             print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.10f}  |  Mean Validation Loss: {mean_val_loss:.10f}",flush=True)
 
 
-def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2):
+def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2):
     try: 
-        model_name = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}")
-        with open(f"{model_name}_ModelInfo.json") as json_file: 
+        model_path = os.path.join(os.getcwd(),"Models",f"{model_name}")
+        with open(f"{model_path}_ModelInfo.json") as json_file: 
             settings = json.load(json_file)
         model = GCONV_Model_RelPos(msg_num=settings["msg_num"],
                                    emb_dim=settings["emb_dim"],
@@ -427,17 +427,19 @@ def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4
                                    node_dim=settings["node_dim"],
                                    edge_dim=settings["edge_dim"],
                                    num_layers=settings["num_layers"])
-        model.load_state_dict(torch.load(model_name))
-        print("Loaded model")
+        model.load_state_dict(torch.load(model_path))
+        msg = "Loaded model"
+        print(msg)
     except: 
-        print("No Trained model")
+        msg = "No Trained model"
+        print(msg)
         model = GCONV_Model_RelPos(msg_num=msg_num,
                                    emb_dim=emb_dim,
                                    hidden_dim=emb_dim,
                                    node_dim=node_dim,
                                    edge_dim=edge_dim,
                                    num_layers=num_layers)
-    return model
+    return model, msg
 
 def SaveModelInfo(model,dataset_name,model_ident):
     ModelInfo = {"msg_num":model.msg_num,
@@ -450,12 +452,15 @@ def SaveModelInfo(model,dataset_name,model_ident):
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)
 
-def SaveTrainingInfo(dataset,trainer):
+def SaveTrainingInfo(dataset,trainer,push: bool = False):
     TrainingInfo = {"super_tol":dataset.super_tol,
                  "tol":dataset.tol,
                  "noise_factor":dataset.noise_factor,
                  "batch_size":trainer.batch_size,
                  "learning_rate":trainer.lr}
-    filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_TrainingInfo.json")
+    if push == True:
+        filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_Push_TrainingInfo.json")
+    else:
+        filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_TrainingInfo.json")
     with open(filename,'w') as f: 
         json.dump(TrainingInfo,f)
