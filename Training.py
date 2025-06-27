@@ -1,21 +1,13 @@
 import torch.cuda
 import torch_geometric.transforms as T
-
-from Encoding import AggregateRawData, save
 from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, SaveTrainingInfo
 
 print(torch.cuda.is_available())
 
-aggregate       = False
 force_reload    = True
 train           = True
 dataset_name    = "N400_Mono"
 model_ident     = "NewModel_1"
-
-if aggregate == True:
-    data_dir = "/home/20182319/Data"
-    ArgsAggregation = AggregateRawData(data_dir,dataset_name)
-    save(dataset_name,*ArgsAggregation)
 
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])

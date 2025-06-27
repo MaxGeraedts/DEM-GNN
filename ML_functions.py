@@ -33,7 +33,7 @@ def MaskTestData(dataset_name,dataset_type: Literal["train","validate","test"]):
     mask = DataMask(loaded_data[0],)[type_dic[dataset_type]]
     test_data = [data[mask] for data in loaded_data]
     return test_data
-
+    
 class LearnedSimulator:
     def __init__(self,i:int,model,data_agr, top_agr,BC_agr,scale_function,super_tol:int,tol:int,transform,timesteps:int=100):
         self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
@@ -82,7 +82,7 @@ class LearnedSimulator:
         par_inp[:,:3] = par_inp[:,:3]+output[input_data.mask].cpu().numpy()
         MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
 
-        return output, par_inp, BC, MatlabTopology
+        return par_inp, BC, MatlabTopology
     
     def MLRollout(self):
         print("Calculating Learned Rollout")
@@ -97,7 +97,7 @@ class LearnedSimulator:
 
             # Rollout
             for t in tqdm(range(1,self.timesteps),initial=1):
-                output, par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology)
+                par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology)
                 # Save equilibrium positions
                 ML_Rollout[t] = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
                 ML_Rollout[t].MatlabTopology = MatlabTopology
@@ -207,7 +207,9 @@ class DEM_Dataset(InMemoryDataset):
                  root: str = os.path.join(os.getcwd(),"Data"),
                  super_tol: int = 6,
                  tol: float = 0,
-                 noise_factor: float = 0):
+                 noise_factor: float = 0,
+                 push_forward_step_max: int = 0,
+                 model = None):
         
         self.raw_data_path = os.path.join(root,"raw")
         self.processed_data_path = os.path.join(root,"processed")
@@ -217,6 +219,9 @@ class DEM_Dataset(InMemoryDataset):
         self.super_tol = super_tol
         self.tol = tol
         self.noise_factor = noise_factor
+        self.forward_step_max = push_forward_step_max
+        self.model = model
+
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
         self.load(os.path.join(self.processed_data_path,self.processed_file_names[0]))
 
@@ -247,13 +252,25 @@ class DEM_Dataset(InMemoryDataset):
         if self.pre_filter is not None:
             simulations = self.pre_filter(simulations)
 
+        if self.forward_step_max > 0:
+            Simulation = LearnedSimulator(0,self.model,data_agr,top_agr,bc,Rescale(self.file_name),self.super_tol,self.tol,
+                                          transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)]),
+                                          timesteps = 100)
+
         print(f"Collecting {self.Dataset_type} data")
         for sim, top, bc in tqdm(zip(data_agr,top_agr,bc),total=bc.shape[0]):
             R_avg = sim[0][:,3].mean()
             super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
             for t in np.arange(len(sim)-1):
-                par_data = sim[t].copy()
-                
+                par_inp = sim[t].copy()
+                BC = bc.copy()
+                BC[:,:3] = bc[:,:3]+(t)*bc[:,-3:]
+                if self.forward_step_max > 0:
+                    push_forward_steps = np.random.randint(0,self.forward_step_max+1)
+                    push_forward_steps = min(push_forward_steps,len(sim)-t-2)
+                    for step in range(push_forward_steps):
+                        par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology)
+
                 if self.noise_factor > 0:
                     standard_deviation = self.noise_factor*R_avg
                     noise = np.array(standard_deviation*torch.randn((par_data.shape[0],3)))
