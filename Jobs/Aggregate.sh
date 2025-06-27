@@ -10,6 +10,8 @@
 #SBATCH --mail-user=m.geraedts1@student.tue.nl
 #SBATCH --mail-type=END
 
+name=N400_Poly
+
 module purge
 module load PyTorch/2.1.2-foss-2023a-CUDA-12.1.1
 source $HOME/Environments/grad/bin/activate
@@ -21,11 +23,10 @@ mkdir $rawdir
 mkdir $procdir
 
 cd $HOME/DEM-GNN
-python Training.py
+python Aggregate.py
 
 deactivate
 
-name=N400_Mono
 cd $HOME/DEM-GNN/Data
-zip -r ${name}_raw.zip $HOME/Data/$name $rawdir/${name}_Data.npy $rawdir/${name}_Topology.npy $rawdir/${name}_BC.npy 
-zip ${name}_processed.zip $procdir/${name}_train.pt $procdir/${name}_test.pt $procdir/${name}_validate.pt $procdir/${name}_scale_pos.pt $procdir/${name}_scale_x.pt
+zip -r $rawdir/${name}_raw.zip $HOME/Data/$name $rawdir/${name}_Data.npy $rawdir/${name}_Topology.npy $rawdir/${name}_BC.npy 
+zip $procdir/${name}_processed.zip $procdir/${name}_train.pt $procdir/${name}_test.pt $procdir/${name}_validate.pt $procdir/${name}_scale_pos.pt $procdir/${name}_scale_x.pt
