@@ -250,7 +250,7 @@ def ConstructTopology(par_data,bc,tol):
     topology = np.concatenate([topology_par,topology_wall]).astype(int)
     return topology
 
-def TopologyFromPlausibleTopology(super_topology,par_data,bc,tol):
+def TopologyFromPlausibleTopology_old(super_topology,par_data,bc,tol):
     """From a large topology of PLAUSIBLE contacts, particle info and boundary conditions, return a topology corresponding to actual contact at the corresponding timestep
 
     Args:
@@ -278,6 +278,55 @@ def TopologyFromPlausibleTopology(super_topology,par_data,bc,tol):
             mask[contact] = a1-Ri <= tol*Ri
 
     topology = super_topology[mask]
+    return topology
+
+def TopologySlice(super_topology_subset,par_data,idx):
+    """Generate slices of particle data given a subset of a super topology
+
+    Args:
+        super_topology_subset (array): array of Particle-particle or Particle-Wall contacts
+        idx (int): dimension to slice along
+
+    Returns:
+        [idx,pos,radius]: Particle indeces of slice, particle positions of slice, raddii of slice.
+    """
+    par_idx = super_topology_subset[:,idx]
+    pos = par_data[par_idx,:3]
+    radius = par_data[par_idx,3]
+    return par_idx,pos,radius
+
+def TopologyFromPlausibleTopology(super_topology,par_data,BC_t,tol):
+    """From a large topology of PLAUSIBLE contacts, particle info and boundary conditions, return a topology corresponding to actual contact at the corresponding timestep
+
+    Args:
+        super_topology (array): array of indices corresponding to contact plausible to occur in the entire simulation
+        par_data (array): array of particle data, including particle position and raddii 
+        bc (array): Array of Boundary planes representing boundary conditions at a timestep
+
+    Returns:
+        array: Lists actual physical contacts
+    """
+    R_avg = par_data[:,3].mean()
+    PP_mask = super_topology[:,1]>0
+    super_topology_PP = super_topology[PP_mask]
+    super_topology_PW = super_topology[~PP_mask]
+
+    [idx_i,pos_i,radius_i] = TopologySlice(super_topology_PP,par_data,0)
+    [idx_j,pos_j,radius_j] = TopologySlice(super_topology_PP,par_data,1)
+    mask_PP = np.linalg.norm(np.astype(pos_i-pos_j,float),axis=1)-(radius_i+radius_j) <= tol*R_avg
+    topology_PP = super_topology_PP[mask_PP]
+
+
+    [idx_i,pos_i,radius_i] = TopologySlice(super_topology_PW,par_data,0)
+    idx_w = -super_topology_PW[:,1]-2
+    PW_vector = BC_t[idx_w,:3]-pos_i
+    wall_normal_vector = BC_t[idx_w,3:6]
+    wall_projection = (PW_vector*wall_normal_vector)*wall_normal_vector
+    dist_wall = np.linalg.norm(wall_projection.astype(float),axis=1)
+    mask_PW = dist_wall-radius_i <= tol*R_avg
+    topology_PW = super_topology_PW[mask_PW]
+
+    topology = np.concatenate((topology_PP,topology_PW))
     return topology
 
 # From list of particles and boundaries, generate model input data
