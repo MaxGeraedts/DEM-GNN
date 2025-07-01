@@ -7,7 +7,7 @@ print(torch.cuda.is_available())
 force_reload    = True
 train           = True
 dataset_name    = "2Sphere"
-model_ident     = "NewModel_1"
+model_ident     = "NewModel_2"
 
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
@@ -26,7 +26,7 @@ if train == True:
     model_name=f"{dataset_name}_{model_ident}"
     model, msg = GetModel(model_name,
                           msg_num=8,
-                          emb_dim=64,
+                          emb_dim=32,
                           edge_dim=4,
                           num_layers=2)
     
@@ -35,7 +35,7 @@ if train == True:
         trainer = Trainer(model, dataset_train,dataset_val,
                         batch_size=32,
                         lr=0.0000001,
-                        epochs=1000,
+                        epochs=250,
                         model_name=model_name)
         
         trainer.train_loop()

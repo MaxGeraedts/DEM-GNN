@@ -271,20 +271,20 @@ class DEM_Dataset(InMemoryDataset):
                 BC = bc.copy()
                 BC[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
 
-                if self.forward_step_max > 0:
-                    push_forward_steps = np.random.randint(0,self.forward_step_max+1)
-                    push_forward_steps = min(push_forward_steps,len(sim)-t-2)
-                    MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
-                    for step in range(push_forward_steps):
-                        par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology)
-                    
+
+                push_forward_steps = np.random.randint(0,self.forward_step_max+1)
+                push_forward_steps = min(push_forward_steps,len(sim)-t-2)
+                MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
+                for forward_step in range(push_forward_steps):
+                    par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology)
+                label_data = sim[t+push_forward_steps+1]
+
                 if self.noise_factor > 0:
                     standard_deviation = self.noise_factor*R_avg
                     noise = np.array(standard_deviation*torch.randn((par_inp.shape[0],3)))
                     par_inp[:,:3]+=noise
 
                 BC[:,:3] += BC[:,-3:]
-                label_data = sim[t+push_forward_steps+1]
 
                 data = ToPytorchData(par_inp,BC,0,MatlabTopology,label_data)[0]
                 data.push_forward_steps = push_forward_steps

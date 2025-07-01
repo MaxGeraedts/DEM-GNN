@@ -316,7 +316,6 @@ def TopologyFromPlausibleTopology(super_topology,par_data,BC_t,tol):
     mask_PP = np.linalg.norm(np.astype(pos_i-pos_j,float),axis=1)-(radius_i+radius_j) <= tol*R_avg
     topology_PP = super_topology_PP[mask_PP]
 
-
     [idx_i,pos_i,radius_i] = TopologySlice(super_topology_PW,par_data,0)
     idx_w = -super_topology_PW[:,1]-2
     PW_vector = BC_t[idx_w,:3]-pos_i
