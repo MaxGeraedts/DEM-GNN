@@ -25,7 +25,7 @@ pre_transform = T.Compose([T.Cartesian(False),
 if train == True:
     model_name=f"{dataset_name}_{model_ident}"
     model, msg = GetModel(model_name,
-                          msg_num=8,
+                          msg_num=2,
                           emb_dim=32,
                           edge_dim=4,
                           num_layers=2)
