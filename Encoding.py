@@ -313,7 +313,7 @@ def TopologyFromPlausibleTopology(super_topology,par_data,BC_t,tol):
 
     [idx_i,pos_i,radius_i] = TopologySlice(super_topology_PP,par_data,0)
     [idx_j,pos_j,radius_j] = TopologySlice(super_topology_PP,par_data,1)
-    mask_PP = np.linalg.norm(np.astype(pos_i-pos_j,float),axis=1)-(radius_i+radius_j) <= tol*R_avg
+    mask_PP = np.linalg.norm(np.ndarray.astype(pos_i-pos_j,float),axis=1)-(radius_i+radius_j) <= tol*R_avg
     topology_PP = super_topology_PP[mask_PP]
 
     [idx_i,pos_i,radius_i] = TopologySlice(super_topology_PW,par_data,0)
