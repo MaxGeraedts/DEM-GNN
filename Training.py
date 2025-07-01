@@ -44,7 +44,7 @@ if train == True:
 
     model, msg = GetModel(model_name)
     
-if train == True & msg == 'Loaded model':
+if train == True and msg == 'Loaded model':
     [dataset_train, dataset_val, dataset_test]      = [DEM_Dataset(dataset_name,
                                                                    dataset_type,
                                                                    mode             = 'delta',
