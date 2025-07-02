@@ -421,8 +421,11 @@ class Trainer:
 def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2):
     try: 
         model_path = os.path.join(os.getcwd(),"Models",f"{model_name}")
-        with open(f"{model_path}_ModelInfo.json") as json_file: 
-            settings = json.load(json_file)
+        if model_name[-5:] == '_Push': 
+            with open(f"{model_path[:-5]}_ModelInfo.json") as json_file: settings = json.load(json_file)
+        else:
+            with open(f"{model_path}_ModelInfo.json") as json_file: settings = json.load(json_file)
+            
         model = GCONV_Model_RelPos(msg_num=settings["msg_num"],
                                    emb_dim=settings["emb_dim"],
                                    hidden_dim=settings["hidden_dim"],

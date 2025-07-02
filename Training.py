@@ -6,7 +6,7 @@ print(torch.cuda.is_available())
 
 force_reload    = False
 train           = True
-dataset_name    = "2Sphere"
+dataset_name    = "N400"
 model_ident     = "NewModel_2"
 
 pre_transform = T.Compose([T.Cartesian(False),
@@ -25,7 +25,7 @@ pre_transform = T.Compose([T.Cartesian(False),
 if train == True:
     model_name=f"{dataset_name}_{model_ident}"
     model, msg = GetModel(model_name,
-                          msg_num=2,
+                          msg_num=5,
                           emb_dim=32,
                           edge_dim=4,
                           num_layers=2)
