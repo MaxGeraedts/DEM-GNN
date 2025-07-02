@@ -79,7 +79,7 @@ class LearnedSimulator:
 
         # With displacement vectors update particle positions and topology
         output = self.rescale(output,self.device)
-        par_inp[:,:3] = par_inp[:,:3]+output[input_data.mask]
+        par_inp[:,:3] = par_inp[:,:3]+output[input_data.mask].cpu().numpy()
         MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
 
         return par_inp, BC, MatlabTopology
