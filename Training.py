@@ -44,17 +44,17 @@ if train == True:
     model, msg = GetModel(model_name)
     
 if train == True and msg == 'Loaded model':
-    [dataset_train, dataset_val, dataset_test]      = [DEM_Dataset(dataset_name,
-                                                                   dataset_type,
-                                                                   mode             = 'delta',
-                                                                   force_reload     = force_reload,
-                                                                   pre_transform    = pre_transform,
-                                                                   super_tol        = 6,
-                                                                   tol              = 0,
-                                                                   noise_factor     = 0,
-                                                                   push_forward_step_max=8,
-                                                                   model = model) 
-                                                                   for dataset_type in ["train","validate","test"]]
+    [dataset_train]      = [DEM_Dataset(dataset_name,
+                                        dataset_type,
+                                        mode             = 'delta',
+                                        force_reload     = force_reload,
+                                        pre_transform    = pre_transform,
+                                        super_tol        = 6,
+                                        tol              = 0,
+                                        noise_factor     = 0,
+                                        push_forward_step_max=8,
+                                        model = model) 
+                                        for dataset_type in ["train"]]
     trainer = Trainer(model, dataset_train,dataset_val,
                       batch_size=32,
                       lr=0.0000001,
