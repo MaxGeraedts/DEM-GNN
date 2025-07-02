@@ -266,6 +266,7 @@ class DEM_Dataset(InMemoryDataset):
         for sim, top, bc in tqdm(zip(data_agr,top_agr,bc),total=bc.shape[0]):
             R_avg = sim[0][:,3].mean()
             self.super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
+            Simulation.super_topology = self.super_topology
             for t in np.arange(len(sim)-1):
                 par_inp = sim[t].copy()
                 BC = bc.copy()
