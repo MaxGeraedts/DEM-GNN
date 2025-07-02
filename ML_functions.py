@@ -35,7 +35,7 @@ def MaskTestData(dataset_name,dataset_type: Literal["train","validate","test"]):
     return test_data
     
 class LearnedSimulator:
-    def __init__(self,i:int,model,data_agr, top_agr,BC_agr,scale_function,super_tol:int,tol:int,transform,timesteps:int=100):
+    def __init__(self,i:int,model,data_agr: np.ndarray, top_agr: np.ndarray,BC_agr:np.ndarray,scale_function,super_tol:int,tol:int,transform,timesteps:int=100):
         self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
         self.BC = BC_agr[i].copy()
         self.par_data = data_agr[i].copy()
@@ -441,7 +441,14 @@ def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2)
                                    num_layers=num_layers)
     return model, msg
 
-def SaveModelInfo(model,dataset_name,model_ident):
+def SaveModelInfo(model,dataset_name:str,model_ident:str):
+    """Saves Model parameters to a dictionary JSON file
+
+    Args:
+        model (Object): Pytorch model as defined by RelPosConv class
+        dataset_name (string): Name of the dataset
+        model_ident (string): Identifier for the model
+    """
     ModelInfo = {"msg_num":model.msg_num,
                  "emb_dim":model.emb_dim,
                  "hidden_dim":model.hidden_dim,
