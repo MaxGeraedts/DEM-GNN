@@ -29,8 +29,8 @@ if train == True:
                           emb_dim=32,
                           edge_dim=4,
                           num_layers=2)
-    
     SaveModelInfo(model,dataset_name,model_ident)
+    
     if msg == "No Trained model":
         trainer = Trainer(model, dataset_train,dataset_val,
                         batch_size=32,
@@ -39,7 +39,6 @@ if train == True:
                         model_name=model_name)
         
         trainer.train_loop()
-
         SaveTrainingInfo(dataset_train,trainer)
 
     model, msg = GetModel(model_name)
@@ -61,5 +60,5 @@ if train == True and msg == 'Loaded model':
                       lr=0.0000001,
                       epochs=250,
                       model_name=f"{dataset_name}_{model_ident}_Push")    
-
+    trainer.train_loop()
     SaveTrainingInfo(dataset_train,trainer)
