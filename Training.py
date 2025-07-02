@@ -4,9 +4,9 @@ from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, SaveTrai
 
 print(torch.cuda.is_available())
 
-force_reload    = False
+force_reload    = True
 train           = True
-dataset_name    = "N400"
+dataset_name    = "N400_Mono"
 model_ident     = "NewModel_2"
 
 pre_transform = T.Compose([T.Cartesian(False),

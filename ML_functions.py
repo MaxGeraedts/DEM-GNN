@@ -266,7 +266,7 @@ class DEM_Dataset(InMemoryDataset):
         for sim, top, bc in tqdm(zip(data_agr,top_agr,bc),total=bc.shape[0]):
             R_avg = sim[0][:,3].mean()
             self.super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
-            Simulation.super_topology = self.super_topology
+            if self.forward_step_max > 0: Simulation.super_topology = self.super_topology
             for t in np.arange(len(sim)-1):
                 par_inp = sim[t].copy()
                 BC = bc.copy()
@@ -425,7 +425,7 @@ def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2)
             with open(f"{model_path[:-5]}_ModelInfo.json") as json_file: settings = json.load(json_file)
         else:
             with open(f"{model_path}_ModelInfo.json") as json_file: settings = json.load(json_file)
-            
+
         model = GCONV_Model_RelPos(msg_num=settings["msg_num"],
                                    emb_dim=settings["emb_dim"],
                                    hidden_dim=settings["hidden_dim"],
