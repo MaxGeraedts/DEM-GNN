@@ -259,8 +259,8 @@ class DEM_Dataset(InMemoryDataset):
 
         if self.forward_step_max > 0:
             Simulation = LearnedSimulator(0,self.model,data_agr,top_agr,bc,Rescale(self.file_name),self.super_tol,self.tol,
-                                          transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)]),
-                                          timesteps = 100)
+                                          transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)]))
+            self.Rollout_step = Simulation.Rollout_Step
 
         print(f"Collecting {self.Dataset_type} data")
         for sim, top, bc in tqdm(zip(data_agr,top_agr,bc),total=bc.shape[0]):
