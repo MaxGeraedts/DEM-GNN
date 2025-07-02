@@ -275,8 +275,9 @@ class DEM_Dataset(InMemoryDataset):
                 push_forward_steps = np.random.randint(0,self.forward_step_max+1)
                 push_forward_steps = min(push_forward_steps,len(sim)-t-2)
                 MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
-                for forward_step in range(push_forward_steps):
-                    par_inp, BC, MatlabTopology = self.Rollout_step(par_inp, BC, MatlabTopology)
+                with torch.inference_mode(): 
+                    for forward_step in range(push_forward_steps):
+                        par_inp, BC, MatlabTopology = self.Rollout_step(par_inp, BC, MatlabTopology)
                 label_data = sim[t+push_forward_steps+1]
 
                 if self.noise_factor > 0:
