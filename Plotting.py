@@ -305,9 +305,10 @@ def PlotTrainingLoss(dataset_name,model_ident):
         ax.set_ylabel("Loss",fontweight='bold')
         ax.legend()
     
+    
     #axs[0].set_ylim(ymin=0)
     axs[1].set_yscale('log')
     axs[1].set_title("Logarithmic Scale")
     axs[0].set_title("Linear Scale")
-
+    axs[0].set_ylim(bottom=0)
     return fig, axs

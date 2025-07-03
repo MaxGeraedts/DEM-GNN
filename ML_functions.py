@@ -35,11 +35,8 @@ def MaskTestData(dataset_name,dataset_type: Literal["train","validate","test"]):
     return test_data
     
 class LearnedSimulator:
-    def __init__(self,i:int,model,data_agr: np.ndarray, top_agr: np.ndarray,BC_agr:np.ndarray,scale_function,super_tol:int,tol:int,transform,timesteps:int=100):
+    def __init__(self,model,scale_function,super_tol:int = 6,tol:int = 0, transform=None,timesteps:int=100):
         self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
-        self.BC = BC_agr[i].copy()
-        self.par_data = data_agr[i].copy()
-        self.topology = top_agr[i].copy()
         self.model = model.to(self.device)
         self.rescale = scale_function
         self.timesteps = timesteps
@@ -47,19 +44,19 @@ class LearnedSimulator:
         self.tol = tol
         self.transform = transform
 
-    def BCrollout(self):
-        print("Calculating BC")
+    def BCrollout(self,show_tqdm):
+        if show_tqdm: print("Calculating BC")
         BC_rollout = np.empty((GetLength(self.par_data),6,9))
         BC_t=np.copy(self.BC)
-        for t in trange(GetLength(self.par_data)):
+        for t in trange(GetLength(self.par_data),disable = not show_tqdm):
             BC_t[:,:3] = self.BC[:,:3]+(t+1)*self.BC[:,-3:] 
             BC_rollout[t] = BC_t
         return BC_rollout
     
-    def GroundTruth_Rollout(self):
-        print("Collecting Ground Truth Rollout")
+    def GroundTruth_Rollout(self,show_tqdm):
+        if show_tqdm: print("Collecting Ground Truth Rollout")
         GroundTruth = np.empty(GetLength(self.par_data),dtype=object)
-        for t in trange(GetLength(self.par_data)):
+        for t in trange(GetLength(self.par_data),disable = not show_tqdm):
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,self.par_data[t],self.BC_rollout[t],self.tol)
             GroundTruth[t] = ToPytorchData(self.par_data[t],self.BC_rollout[t],self.tol,MatlabTopology)[0]
             GroundTruth[t].MatlabTopology = MatlabTopology
@@ -84,8 +81,8 @@ class LearnedSimulator:
 
         return par_inp, BC, MatlabTopology
     
-    def MLRollout(self):
-        print("Calculating Learned Rollout")
+    def MLRollout(self,show_tqdm):
+        if show_tqdm: print("Calculating Learned Rollout")
         with torch.inference_mode():
             # Initiate Rollout
             ML_Rollout = np.empty((self.timesteps),dtype=object)
@@ -97,7 +94,7 @@ class LearnedSimulator:
             ML_Rollout[0].MatlabTopology = MatlabTopology
 
             # Rollout
-            for t in tqdm(range(1,self.timesteps),initial=1):
+            for t in tqdm(range(1,self.timesteps),initial=1,disable = not show_tqdm):
                 par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology)
                 # Save equilibrium positions
                 ML_Rollout[t] = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
@@ -105,11 +102,14 @@ class LearnedSimulator:
 
         return ML_Rollout
 
-    def Rollout(self):
-        self.BC_rollout = self.BCrollout()
+    def Rollout(self,data_agr: np.ndarray, top_agr: np.ndarray,BC_agr:np.ndarray, i:int,show_tqdm: bool = False):
+        self.BC = BC_agr[i].copy()
+        self.par_data = data_agr[i].copy()
+        self.topology = top_agr[i].copy()
+        self.BC_rollout = self.BCrollout(show_tqdm)
         self.super_topology = ConstructTopology(self.par_data[0],self.BC_rollout[0],self.super_tol)-1
-        self.GroundTruth = self.GroundTruth_Rollout()
-        self.ML_rollout = self.MLRollout()
+        self.GroundTruth = self.GroundTruth_Rollout(show_tqdm)
+        self.ML_rollout = self.MLRollout(show_tqdm)
 
 # Dataset
 def GetScales(dataset,dataset_name):
@@ -203,7 +203,7 @@ def DataMask(data,test_step: int = 20, val_step: int = 10):
 class DEM_Dataset(InMemoryDataset):
     def __init__(self,file_name: str,
                  Dataset_type: Literal["train","validate","test"],
-                 mode: Literal["cart","delta"],
+                 mode: Literal["cart","delta"] = 'delta',
                  force_reload=False,pre_transform=None, transform=None, pre_filter=None,
                  root: str = os.path.join(os.getcwd(),"Data"),
                  super_tol: int = 6,
@@ -434,7 +434,7 @@ def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2)
                                    num_layers=settings["num_layers"])
         model.load_state_dict(torch.load(model_path))
         msg = "Loaded model"
-        print(msg)
+        print(f"{msg} {model_name}")
     except: 
         msg = "No Trained model"
         print(msg)

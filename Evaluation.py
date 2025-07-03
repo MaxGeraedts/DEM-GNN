@@ -1,6 +1,7 @@
 import torch
-from tqdm import tqdm
+from tqdm import tqdm, trange
 import numpy as np
+from ML_functions import LearnedSimulator, NormalizeData, GetModel, Rescale, NormalizePos, MaskTestData
 
 def GetAllContactpoints(data):
     real_edge = data.edge_index[:,data.edge_mask]
@@ -182,3 +183,37 @@ def WallReaction(datalist,BC_rollout,Fcontact):
             F_wall[Wall,t,:] += F_PWcontact[i,:]
         S_wall[:,t,:] = F_wall[:,t,:]/A_wall.T
     return F_wall, S_wall
+
+def AggregatedRollouts(AggregatedArgs,Simulation):
+    pos_test = torch.from_numpy(np.array(AggregatedArgs[0][:,:,:,:3],float))
+    pos_ML = torch.zeros_like(pos_test)
+
+    for sample_idx in trange(pos_test.shape[0]):
+        Simulation.Rollout(*AggregatedArgs,sample_idx)
+        pos_ML[sample_idx,:,:] = torch.stack([data.pos[data.mask] for data in Simulation.ML_rollout]) 
+
+    return pos_test, pos_ML
+
+def EvaluateAggregatedRollouts(pos_test,pos_ML,par_data):
+    loss_fn = torch.nn.MSELoss()
+    loss = loss_fn(pos_ML,pos_test)
+
+    dist = (pos_ML-pos_test).pow(2).sum(dim=-1).sqrt()
+    dist_mean = dist.mean()
+
+    radii = torch.from_numpy(np.array(par_data[:,:,:,3],float))
+    normalized_dist = dist/radii
+    normalized_dist_mean = normalized_dist.mean()
+    return loss, dist_mean, normalized_dist_mean
+
+def Evaluate(dataset_name,model_ident,transform,AggregatedArgs):
+    model = GetModel(f"{dataset_name}_{model_ident}")[0]
+    Simulation = LearnedSimulator(model, scale_function = Rescale(dataset_name),transform = transform)
+
+    pos_test, pos_ML = AggregatedRollouts(AggregatedArgs,Simulation)
+    loss, dist_mean, normalized_dist_mean = EvaluateAggregatedRollouts(pos_test,pos_ML,AggregatedArgs[0])
+
+    contents = {'L2 Norm:': loss, "Mean Euclidean distance:": dist_mean, "Radius normalized mean Euclidean distance:": normalized_dist_mean}
+    for metric, value in contents.items():
+        print(f"{metric:<50}{value:4f}")
+    return loss, dist_mean, normalized_dist_mean
