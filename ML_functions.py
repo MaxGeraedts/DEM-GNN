@@ -302,7 +302,7 @@ class DEM_Dataset(InMemoryDataset):
                 displacements = pos_target_slice-pos_slice
                 displacements = np.reshape(np.swapaxes(displacements,0,1),(-1,3*self.bundle_size)).astype(float)
 
-                data = ToPytorchData(par_inp,BC,0,MatlabTopology,displacements)[0]
+                data = ToPytorchData(par_inp,BC,0,MatlabTopology,label_data=displacements)[0]
                 data.push_forward_steps = push_forward_steps
                 data_list.append(data)
 
