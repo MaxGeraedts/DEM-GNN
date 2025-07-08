@@ -210,6 +210,7 @@ class DEM_Dataset(InMemoryDataset):
                  tol: float = 0,
                  noise_factor: float = 0,
                  push_forward_step_max: int = 0,
+                 bundle_size: int = 1,
                  model = None):
         
         self.raw_data_path = os.path.join(root,"raw")
@@ -221,6 +222,7 @@ class DEM_Dataset(InMemoryDataset):
         self.tol = tol
         self.noise_factor = noise_factor
         self.forward_step_max = push_forward_step_max
+        self.bundle_size = bundle_size
         self.model = model
 
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
@@ -234,10 +236,10 @@ class DEM_Dataset(InMemoryDataset):
     
     @property
     def processed_file_names(self):
+        processed_file_name = f"{self.file_name}_{self.Dataset_type}"
         if self.forward_step_max > 0: 
-            processed_file_name =f"{self.file_name}_{self.Dataset_type}_Push.pt"
-        else:
-            processed_file_name =f"{self.file_name}_{self.Dataset_type}.pt"
+            processed_file_name += f"_Push"
+        processed_file_name  += ".pt"  
         return [processed_file_name]
     
     def download(self):
@@ -258,7 +260,7 @@ class DEM_Dataset(InMemoryDataset):
             simulations = self.pre_filter(simulations)
 
         if self.forward_step_max > 0:
-            Simulation = LearnedSimulator(0,self.model,data_agr,top_agr,bc,Rescale(self.file_name),self.super_tol,self.tol,
+            Simulation = LearnedSimulator(self.model,Rescale(self.file_name),self.super_tol,self.tol,
                                           transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)]))
             self.Rollout_step = Simulation.Rollout_Step
 
@@ -267,7 +269,7 @@ class DEM_Dataset(InMemoryDataset):
             R_avg = sim[0][:,3].mean()
             self.super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
             if self.forward_step_max > 0: Simulation.super_topology = self.super_topology
-            for t in np.arange(len(sim)-1):
+            for t in np.arange(len(sim)-1*self.bundle_size):
                 par_inp = sim[t].copy()
                 BC = bc.copy()
                 BC[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
@@ -279,7 +281,6 @@ class DEM_Dataset(InMemoryDataset):
                 with torch.inference_mode(): 
                     for forward_step in range(push_forward_steps):
                         par_inp, BC, MatlabTopology = self.Rollout_step(par_inp, BC, MatlabTopology)
-                label_data = sim[t+push_forward_steps+1]
 
                 if self.noise_factor > 0:
                     standard_deviation = self.noise_factor*R_avg
@@ -287,8 +288,12 @@ class DEM_Dataset(InMemoryDataset):
                     par_inp[:,:3]+=noise
 
                 BC[:,:3] += BC[:,-3:]
+                pos_slice = sim[t+push_forward_steps*self.bundle_size:t+(push_forward_steps+1)*self.bundle_size,:,:3]
+                pos_target_slice = sim[t+1+push_forward_steps*self.bundle_size:t+1+(push_forward_steps+1)*self.bundle_size,:,:3]
+                displacements = pos_target_slice-pos_slice
+                displacements = np.reshape(np.swapaxes(displacements,0,1),(-1,3*self.bundle_size)).astype(float)
 
-                data = ToPytorchData(par_inp,BC,0,MatlabTopology,label_data)[0]
+                data = ToPytorchData(par_inp,BC,0,MatlabTopology,displacements)[0]
                 data.push_forward_steps = push_forward_steps
                 data_list.append(data)
 
@@ -418,7 +423,7 @@ class Trainer:
             print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.10f}  |  Mean Validation Loss: {mean_val_loss:.10f}",flush=True)
 
 
-def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2):
+def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2,bundle_size=1):
     try: 
         model_path = os.path.join(os.getcwd(),"Models",f"{model_name}")
         if model_name[-5:] == '_Push': 
@@ -431,6 +436,7 @@ def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2)
                                    hidden_dim=settings["hidden_dim"],
                                    node_dim=settings["node_dim"],
                                    edge_dim=settings["edge_dim"],
+                                   out_dim=settings["out_dim"],
                                    num_layers=settings["num_layers"])
         model.load_state_dict(torch.load(model_path))
         msg = "Loaded model"
@@ -438,11 +444,12 @@ def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2)
     except: 
         msg = "No Trained model"
         print(msg)
-        model = GCONV_Model_RelPos(msg_num=msg_num,
+        model = GCONV_Model_RelPos(msg_num,
                                    emb_dim=emb_dim,
                                    hidden_dim=emb_dim,
                                    node_dim=node_dim,
                                    edge_dim=edge_dim,
+                                   out_dim=3*bundle_size,
                                    num_layers=num_layers)
     return model, msg
 
@@ -459,6 +466,7 @@ def SaveModelInfo(model,dataset_name:str,model_ident:str):
                  "hidden_dim":model.hidden_dim,
                  "node_dim":model.node_dim,
                  "edge_dim":model.edge_dim,
+                 "out_dim": model.out_dim,
                  "num_layers":model.num_layers}
     filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}_ModelInfo.json")
     with open(filename,'w') as f: 
