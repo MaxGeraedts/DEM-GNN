@@ -27,7 +27,8 @@ if train == True:
                           msg_num=2,
                           emb_dim=32,
                           edge_dim=4,
-                          num_layers=2)
+                          num_layers=2,
+                          bundle_size=bundle_size)
     SaveModelInfo(model,dataset_name,model_ident)
     
     if msg == "No Trained model":
