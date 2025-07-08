@@ -35,7 +35,7 @@ def MaskTestData(dataset_name,dataset_type: Literal["train","validate","test"]):
     return test_data
     
 class LearnedSimulator:
-    def __init__(self,model,scale_function,super_tol:int = 6,tol:int = 0, transform=None,timesteps:int=100):
+    def __init__(self,model,scale_function,super_tol:int = 6,tol:int = 0, transform=None,timesteps:int=100,bundle_size=1):
         self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
         self.model = model.to(self.device)
         self.rescale = scale_function
@@ -43,6 +43,7 @@ class LearnedSimulator:
         self.super_tol = super_tol
         self.tol = tol
         self.transform = transform
+        self.bundle_size = bundle_size
 
     def BCrollout(self,show_tqdm):
         if show_tqdm: print("Calculating BC")
@@ -62,9 +63,7 @@ class LearnedSimulator:
             GroundTruth[t].MatlabTopology = MatlabTopology
         return GroundTruth
     
-    def Rollout_Step(self,par_inp, BC,MatlabTopology):
-        # Update Boundary conditions
-        BC[:,:3] += BC[:,-3:]
+    def Rollout_Step(self,par_inp, BC,MatlabTopology, ML_Rollout: list = None):
 
         # Convert raw data to PyTorch Graphdata
         input_data = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
@@ -73,11 +72,20 @@ class LearnedSimulator:
 
         # Run ML Model
         output = self.model(input_data)
+        output = self.rescale(output,self.device)
+        output = np.swapaxes(np.reshape(output,(-1,self.bundle_size,3)),0,1)
 
         # With displacement vectors update particle positions and topology
-        output = self.rescale(output,self.device)
-        par_inp[:,:3] = par_inp[:,:3]+output[input_data.mask].cpu().numpy()
-        MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
+        for displacement in output:
+            par_inp[:,:3] = par_inp[:,:3]+displacement[input_data.mask].cpu().numpy()
+            MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
+
+            if ML_Rollout is not None:
+                data = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
+                data.MatlabTopology = MatlabTopology
+                ML_Rollout.append(data)
+
+            BC[:,:3] += BC[:,-3:]
 
         return par_inp, BC, MatlabTopology
     
@@ -85,20 +93,19 @@ class LearnedSimulator:
         if show_tqdm: print("Calculating Learned Rollout")
         with torch.inference_mode():
             # Initiate Rollout
-            ML_Rollout = np.empty((self.timesteps),dtype=object)
+            ML_Rollout = []
             par_inp = self.par_data[0]
             BC = self.BC
             BC[:,:3] += BC[:,-3:]
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
-            ML_Rollout[0] = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
-            ML_Rollout[0].MatlabTopology = MatlabTopology
+            data = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
+            data.MatlabTopology = MatlabTopology
+            ML_Rollout.append(data)
 
             # Rollout
-            for t in tqdm(range(1,self.timesteps),initial=1,disable = not show_tqdm):
-                par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology)
-                # Save equilibrium positions
-                ML_Rollout[t] = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
-                ML_Rollout[t].MatlabTopology = MatlabTopology
+            BC[:,:3] += BC[:,-3:]
+            for t in tqdm(range(1,self.timesteps,self.bundle_size),initial=1,disable = not show_tqdm):
+                par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology,ML_Rollout)
 
         return ML_Rollout
 
@@ -260,8 +267,10 @@ class DEM_Dataset(InMemoryDataset):
             simulations = self.pre_filter(simulations)
 
         if self.forward_step_max > 0:
-            Simulation = LearnedSimulator(self.model,Rescale(self.file_name),self.super_tol,self.tol,
-                                          transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)]))
+            Simulation = LearnedSimulator(self.model,
+                                          scale_function=Rescale(self.file_name),
+                                          transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)]),
+                                          bundle_size=self.bundle_size)
             self.Rollout_step = Simulation.Rollout_Step
 
         print(f"Collecting {self.Dataset_type} data")

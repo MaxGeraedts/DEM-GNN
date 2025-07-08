@@ -6,26 +6,25 @@ print(torch.cuda.is_available())
 
 force_reload    = True
 train           = True
-dataset_name    = "N400_Mono"
-model_ident     = "NewModel_2"
+dataset_name    = "2Sphere"
+model_ident     = "BundleTest"
+bundle_size     = 3 
+forward_steps   = 5
 
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 
 [dataset_train, dataset_val, dataset_test]      = [DEM_Dataset(dataset_name,
                                                                dataset_type,
-                                                               mode             = 'delta',
                                                                force_reload     = force_reload,
                                                                pre_transform    = pre_transform,
-                                                               super_tol        = 6,
-                                                               tol              = 0,
-                                                               noise_factor     = 0) 
+                                                               bundle_size      = bundle_size) 
                                                                for dataset_type in ["train","validate","test"]]
 
 if train == True:
     model_name=f"{dataset_name}_{model_ident}"
     model, msg = GetModel(model_name,
-                          msg_num=5,
+                          msg_num=2,
                           emb_dim=32,
                           edge_dim=4,
                           num_layers=2)
@@ -46,13 +45,10 @@ if train == True:
 if train == True and msg == 'Loaded model':
     [dataset_train]      = [DEM_Dataset(dataset_name,
                                         dataset_type,
-                                        mode             = 'delta',
-                                        force_reload     = force_reload,
-                                        pre_transform    = pre_transform,
-                                        super_tol        = 6,
-                                        tol              = 0,
-                                        noise_factor     = 0,
-                                        push_forward_step_max=8,
+                                        force_reload            = force_reload,
+                                        pre_transform           = pre_transform,
+                                        push_forward_step_max   = forward_steps,
+                                        bundle_size             = bundle_size,
                                         model = model) 
                                         for dataset_type in ["train"]]
     trainer = Trainer(model, dataset_train,dataset_val,
