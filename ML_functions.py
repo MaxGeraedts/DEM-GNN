@@ -72,7 +72,7 @@ class LearnedSimulator:
 
         # Run ML Model
         output = self.model(input_data)
-        output = self.rescale(output,self.device)
+        output = self.rescale(output,self.device).cpu()
         output = np.swapaxes(np.reshape(output,(-1,self.bundle_size,3)),0,1)
 
         # With displacement vectors update particle positions and topology
@@ -481,13 +481,15 @@ def SaveModelInfo(model,dataset_name:str,model_ident:str):
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)
 
-def SaveTrainingInfo(dataset,trainer,push: bool = False):
+def SaveTrainingInfo(dataset,trainer):
     TrainingInfo = {"super_tol":dataset.super_tol,
                  "tol":dataset.tol,
                  "noise_factor":dataset.noise_factor,
                  "batch_size":trainer.batch_size,
-                 "learning_rate":trainer.lr}
-    if push == True:
+                 "learning_rate":trainer.lr,
+                 "bundle_size":dataset.bundle_size,
+                 "push_forward_step_max":dataset.forward_step_max}
+    if dataset.forward_step_max > 0:
         filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_Push_TrainingInfo.json")
     else:
         filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_TrainingInfo.json")
