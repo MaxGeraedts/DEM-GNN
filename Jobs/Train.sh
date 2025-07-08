@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ML-Training
 #SBATCH --output=Training-%j.log
-#SBATCH --partition=be.gpuresearch.q
+#SBATCH --partition=be.gpuresearch.q,tue.gpu.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
