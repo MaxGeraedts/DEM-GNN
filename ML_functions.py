@@ -35,7 +35,7 @@ def MaskTestData(dataset_name,dataset_type: Literal["train","validate","test"]):
     return test_data
     
 class LearnedSimulator:
-    def __init__(self,model,scale_function,super_tol:int = 6,tol:int = 0, transform=None,timesteps:int=100,bundle_size=1):
+    def __init__(self,model,scale_function,super_tol:int = 6,tol:int = 0, transform=None,timesteps:int=100):
         self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
         self.model = model.to(self.device)
         self.rescale = scale_function
@@ -43,7 +43,7 @@ class LearnedSimulator:
         self.super_tol = super_tol
         self.tol = tol
         self.transform = transform
-        self.bundle_size = bundle_size
+        self.bundle_size = model.bundle_size
 
     def BCrollout(self,show_tqdm):
         if show_tqdm: print("Calculating BC")
@@ -73,11 +73,10 @@ class LearnedSimulator:
         # Run ML Model
         output = self.model(input_data)
         output = self.rescale(output,self.device).cpu()
-        output = np.swapaxes(np.reshape(output,(-1,self.bundle_size,3)),0,1)
-
+        output = np.stack(np.split(output,output.shape[1]/3,axis=1))
         # With displacement vectors update particle positions and topology
         for displacement in output:
-            par_inp[:,:3] = par_inp[:,:3]+displacement[input_data.mask].cpu().numpy()
+            par_inp[:,:3] = par_inp[:,:3]+displacement[input_data.mask]
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
 
             if ML_Rollout is not None:
@@ -258,7 +257,12 @@ class DEM_Dataset(InMemoryDataset):
         type_idx = {"train":0,"validate":1,"test":2}[self.Dataset_type]
         mask =  DataMask(data)[type_idx]
         return data[mask]
-
+    
+    def SliceAndReshapeData(self,par_data,t,push_forward_steps):
+        pos_slice = par_data[t+push_forward_steps*self.bundle_size:t+(push_forward_steps+1)*self.bundle_size,:,:3]
+        pos_slice_2D = np.reshape(np.swapaxes(pos_slice,0,1),(-1,3*self.bundle_size))
+        return pos_slice_2D
+    
     def process(self):
         data_list = []
         data_agr,top_agr,bc= [self.LoadSimTop(i) for i in [0,1,2]]
@@ -269,8 +273,7 @@ class DEM_Dataset(InMemoryDataset):
         if self.forward_step_max > 0:
             Simulation = LearnedSimulator(self.model,
                                           scale_function=Rescale(self.file_name),
-                                          transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)]),
-                                          bundle_size=self.bundle_size)
+                                          transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)]))
             self.Rollout_step = Simulation.Rollout_Step
 
         print(f"Collecting {self.Dataset_type} data")
@@ -297,10 +300,9 @@ class DEM_Dataset(InMemoryDataset):
                     par_inp[:,:3]+=noise
 
                 BC[:,:3] += BC[:,-3:]
-                pos_slice = sim[t+push_forward_steps*self.bundle_size:t+(push_forward_steps+1)*self.bundle_size,:,:3]
-                pos_target_slice = sim[t+1+push_forward_steps*self.bundle_size:t+1+(push_forward_steps+1)*self.bundle_size,:,:3]
+                pos_slice        = self.SliceAndReshapeData(sim,t  ,push_forward_steps)
+                pos_target_slice = self.SliceAndReshapeData(sim,t+1,push_forward_steps)
                 displacements = pos_target_slice-pos_slice
-                displacements = np.reshape(np.swapaxes(displacements,0,1),(-1,3*self.bundle_size)).astype(float)
 
                 data = ToPytorchData(par_inp,BC,0,MatlabTopology,label_data=displacements)[0]
                 data.push_forward_steps = push_forward_steps
@@ -344,21 +346,22 @@ class RelPosConv(MessagePassing):
         return self.update_mlp(cat)
     
 class GCONV_Model_RelPos(torch.nn.Module):
-    def __init__(self,msg_num=3, emb_dim=64, hidden_dim=64, node_dim=7, edge_dim=4, out_dim = 3,num_layers = 2):
+    def __init__(self,msg_num:int=3, emb_dim:int=64, hidden_dim:int=64, node_dim:int=7, edge_dim:int=4, bundle_size:int = 1,num_layers:int = 2):
         super(GCONV_Model_RelPos,self).__init__()
         self.msg_num = msg_num
         self.emb_dim = emb_dim
         self.hidden_dim = emb_dim
         self.node_dim = node_dim
         self.edge_dim = edge_dim
-        self.out_dim = out_dim
+        self.bundle_size = bundle_size
+        self.out_dim = 3*bundle_size
         self.num_layers = num_layers
         self.node_embed = MLP(in_channels=node_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers,norm=None)
         self.edge_embed = MLP(in_channels=edge_dim,hidden_channels=hidden_dim,out_channels=emb_dim,num_layers=num_layers,norm=None)
         self.convs = torch.nn.ModuleList()
         for k in range(msg_num):
             self.convs.append(RelPosConv(emb_dim=emb_dim,hidden_dim=hidden_dim,out_channels=emb_dim,num_layers=num_layers))
-        self.decoder = MLP(in_channels=emb_dim,hidden_channels=hidden_dim,out_channels=out_dim,num_layers=num_layers,norm=None)
+        self.decoder = MLP(in_channels=emb_dim,hidden_channels=hidden_dim,out_channels=self.out_dim,num_layers=num_layers,norm=None)
         self.double()
         
     def forward(self,data):
@@ -445,7 +448,7 @@ def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2,
                                    hidden_dim=settings["hidden_dim"],
                                    node_dim=settings["node_dim"],
                                    edge_dim=settings["edge_dim"],
-                                   out_dim=settings["out_dim"],
+                                   bundle_size=settings["bundle_size"],
                                    num_layers=settings["num_layers"])
         model.load_state_dict(torch.load(model_path))
         msg = "Loaded model"
@@ -476,7 +479,8 @@ def SaveModelInfo(model,dataset_name:str,model_ident:str):
                  "node_dim":model.node_dim,
                  "edge_dim":model.edge_dim,
                  "out_dim": model.out_dim,
-                 "num_layers":model.num_layers}
+                 "num_layers":model.num_layers,
+                 "bundle_size":model.bundle_size}
     filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}_ModelInfo.json")
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)
