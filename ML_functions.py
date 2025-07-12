@@ -209,7 +209,6 @@ def DataMask(data,test_step: int = 20, val_step: int = 10):
 class DEM_Dataset(InMemoryDataset):
     def __init__(self,file_name: str,
                  Dataset_type: Literal["train","validate","test"],
-                 mode: Literal["cart","delta"] = 'delta',
                  force_reload=False,pre_transform=None, transform=None, pre_filter=None,
                  root: str = os.path.join(os.getcwd(),"Data"),
                  super_tol: int = 6,
@@ -223,7 +222,6 @@ class DEM_Dataset(InMemoryDataset):
         self.processed_data_path = os.path.join(root,"processed")
         self.file_name = file_name
         self.Dataset_type = Dataset_type
-        self.mode = mode
         self.super_tol = super_tol
         self.tol = tol
         self.noise_factor = noise_factor
@@ -242,9 +240,9 @@ class DEM_Dataset(InMemoryDataset):
     
     @property
     def processed_file_names(self):
-        processed_file_name = f"{self.file_name}_{self.Dataset_type}"
+        processed_file_name = f"{self.file_name}_b{self.bundle_size}_{self.Dataset_type}"
         if self.forward_step_max > 0: 
-            processed_file_name += f"_Push"
+            processed_file_name += f"_Push{self.push_forward_step_max}"
         processed_file_name  += ".pt"  
         return [processed_file_name]
     

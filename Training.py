@@ -4,7 +4,7 @@ from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, SaveTrai
 
 print(torch.cuda.is_available())
 
-force_reload    = False
+force_reload    = True
 train           = True
 dataset_name    = "2Sphere"
 model_ident     = "BundleTest"
