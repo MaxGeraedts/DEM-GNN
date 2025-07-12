@@ -242,7 +242,7 @@ class DEM_Dataset(InMemoryDataset):
     def processed_file_names(self):
         processed_file_name = f"{self.file_name}_b{self.bundle_size}_{self.Dataset_type}"
         if self.forward_step_max > 0: 
-            processed_file_name += f"_Push{self.push_forward_step_max}"
+            processed_file_name += f"_Push{self.forward_step_max}"
         processed_file_name  += ".pt"  
         return [processed_file_name]
     
