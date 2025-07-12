@@ -459,7 +459,7 @@ def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2,
                                    hidden_dim=emb_dim,
                                    node_dim=node_dim,
                                    edge_dim=edge_dim,
-                                   out_dim=3*bundle_size,
+                                   bundle_size=bundle_size,
                                    num_layers=num_layers)
     return model, msg
 
