@@ -280,14 +280,12 @@ class DEM_Dataset(InMemoryDataset):
             R_avg = sim[0][:,3].mean()
             self.super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
             if self.forward_step_max > 0: Simulation.super_topology = self.super_topology
-            for t in np.arange(len(sim)-1*self.bundle_size):
+            for t in range(len(sim)-1*self.bundle_size*(self.forward_step_max+1)):
                 par_inp = sim[t].copy()
                 BC = bc.copy()
                 BC[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
 
-
                 push_forward_steps = np.random.randint(0,self.forward_step_max+1)
-                push_forward_steps = min(push_forward_steps,len(sim)-t-2)
                 MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
                 with torch.inference_mode(): 
                     for forward_step in range(push_forward_steps):
