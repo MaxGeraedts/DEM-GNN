@@ -32,6 +32,7 @@ if train == True:
     SaveModelInfo(model,dataset_name,model_ident)
     
     if msg == "No Trained model":
+        print(f"Training {model_name}")
         trainer = Trainer(model, dataset_train,dataset_val,
                         batch_size=32,
                         lr=0.0000001,
@@ -52,6 +53,7 @@ if train == True and msg == 'Loaded model':
                                         bundle_size             = bundle_size,
                                         model = model) 
                                         for dataset_type in ["train"]]
+    print(f"Training {model_name}_Push")
     trainer = Trainer(model, dataset_train,dataset_val,
                       batch_size=32,
                       lr=0.0000001,
