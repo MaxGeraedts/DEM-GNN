@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=Aggregate
-#SBATCH --output=Aggregate-%j.log
+#SBATCH --output=./Jobs/Aggregate-%j.log
 #SBATCH --partition=be.research.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
