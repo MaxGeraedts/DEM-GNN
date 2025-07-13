@@ -121,7 +121,7 @@ def GetScales(dataset,scale_name):
               "y_mean":     dataset.y.mean(dim=0).tolist(),
               "y_std":      dataset.y.std(dim=0).tolist()}
     
-    filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name}_scales")
+    filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name}_scales.json")
     with open(filename,'w') as f: 
         json.dump(scales,f)
     return scales
@@ -226,7 +226,7 @@ class DEM_Dataset(InMemoryDataset):
         self.bundle_size = bundle_size
         self.model = model
         self.model_ident = model_ident
-        self.scale_name = f"{self.file_name}_bund{self.bundle_size}_push{self.forward_step_max}"
+        self.scale_name = f"{self.file_name}_bund{self.bundle_size}"
 
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
         self.load(os.path.join(self.processed_data_path,self.processed_file_names[0]))
