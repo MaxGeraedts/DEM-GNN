@@ -307,8 +307,8 @@ class DEM_Dataset(InMemoryDataset):
 
         print(f"Normalizing {self.Dataset_type} data")    
         if self.Dataset_type == "train" and self.forward_step_max == 0:
-            GetScales(Batch.from_data_list(data_list),self.processed_file_names[0])
-        self.normalize = NormalizeData(self.processed_file_names[0])
+            GetScales(Batch.from_data_list(data_list),f"{self.file_name}_bund{self.bundle_size}")
+        self.normalize = NormalizeData(f"{self.file_name}_bund{self.bundle_size}")
         data_list = [self.normalize(data) for data in tqdm(data_list)]
                 
         self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))
