@@ -114,14 +114,14 @@ class LearnedSimulator:
         self.ML_rollout = self.MLRollout(show_tqdm)
 
 # Dataset
-def GetScales(dataset,dataset_name):
+def GetScales(dataset,scale_name):
     scales = {"scale_x":    dataset.x.max(dim=0,keepdim=False)[0].tolist(),
               "edge_mean":  dataset.edge_attr.mean(dim=0).tolist(),
               "edge_std":   dataset.edge_attr.std(dim=0).tolist(),
               "y_mean":     dataset.y.mean(dim=0).tolist(),
               "y_std":      dataset.y.std(dim=0).tolist()}
     
-    filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales.json")
+    filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name[:-3]}_scales")
     with open(filename,'w') as f: 
         json.dump(scales,f)
     return scales
@@ -129,8 +129,8 @@ def GetScales(dataset,dataset_name):
 class Rescale:
     """Rescale output based on standardization during training
     """
-    def __init__(self,dataset_name):
-        self.filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales")
+    def __init__(self,scale_name):
+        self.filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name[:-3]}_scales")
         with open(f"{self.filename}.json") as json_file: 
             self.scales = json.load(json_file)
         self.y_mean = self.scales["y_mean"]
@@ -153,8 +153,8 @@ class Rescale:
 class NormalizeData(T.BaseTransform):
     r"""Scales node features to :math:`(0, 1)`. Standardizes edge attributes and optionally labels (zero mean, unit variance)
     """
-    def __init__(self,dataset_name):
-        filename = os.path.join(os.getcwd(),"Data","processed",f"{dataset_name}_scales")
+    def __init__(self,scale_name):
+        filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name}_scales")
         with open(f"{filename}.json") as json_file: 
             self.scales = json.load(json_file)
 
@@ -212,7 +212,8 @@ class DEM_Dataset(InMemoryDataset):
                  noise_factor: float = 0,
                  push_forward_step_max: int = 0,
                  bundle_size: int = 1,
-                 model = None):
+                 model = None,
+                 model_ident:str=None):
         
         self.raw_data_path = os.path.join(root,"raw")
         self.processed_data_path = os.path.join(root,"processed")
@@ -224,6 +225,8 @@ class DEM_Dataset(InMemoryDataset):
         self.forward_step_max = push_forward_step_max
         self.bundle_size = bundle_size
         self.model = model
+        self.model_ident = model_ident
+        self.scale_name = f"{self.file_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.Dataset_type}"
 
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
         self.load(os.path.join(self.processed_data_path,self.processed_file_names[0]))
@@ -236,10 +239,9 @@ class DEM_Dataset(InMemoryDataset):
     
     @property
     def processed_file_names(self):
-        processed_file_name = f"{self.file_name}_bund{self.bundle_size}_{self.Dataset_type}"
-        if self.forward_step_max > 0: 
-            processed_file_name += f"_push{self.forward_step_max}"
-        processed_file_name  += ".pt"  
+        processed_file_name = f"{self.file_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.Dataset_type}.pt"
+        if self.forward_step_max > 0:
+              processed_file_name = f"{self.file_name}_{self.model_ident}_{self.Dataset_type}.pt"
         return [processed_file_name]
     
     def download(self):
@@ -267,8 +269,8 @@ class DEM_Dataset(InMemoryDataset):
 
         if self.forward_step_max > 0:
             Simulation = LearnedSimulator(self.model,
-                                          scale_function=Rescale(f"{self.file_name}_bund{self.bundle_size}"),
-                                          transform = T.Compose([self.pre_transform,NormalizeData(f"{self.file_name}_bund{self.bundle_size}")]))
+                                          scale_function=Rescale(self.scale_name),
+                                          transform = T.Compose([self.pre_transform,NormalizeData(self.scale_name)]))
             self.Rollout_step = Simulation.Rollout_Step
 
         print(f"Collecting {self.Dataset_type} data")
@@ -307,8 +309,8 @@ class DEM_Dataset(InMemoryDataset):
 
         print(f"Normalizing {self.Dataset_type} data")    
         if self.Dataset_type == "train" and self.forward_step_max == 0:
-            GetScales(Batch.from_data_list(data_list),f"{self.file_name}_bund{self.bundle_size}")
-        self.normalize = NormalizeData(f"{self.file_name}_bund{self.bundle_size}")
+            GetScales(Batch.from_data_list(data_list),self.scale_name)
+        self.normalize = NormalizeData(self.scale_name)
         data_list = [self.normalize(data) for data in tqdm(data_list)]
                 
         self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))
@@ -431,10 +433,7 @@ class Trainer:
 def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2,bundle_size=1):
     try: 
         model_path = os.path.join(os.getcwd(),"Models",f"{model_name}")
-        if model_name[-5:] == '_Push': 
-            with open(f"{model_path[:-5]}_ModelInfo.json") as json_file: settings = json.load(json_file)
-        else:
-            with open(f"{model_path}_ModelInfo.json") as json_file: settings = json.load(json_file)
+        with open(f"{model_path}_ModelInfo.json") as json_file: settings = json.load(json_file)
 
         model = GCONV_Model_RelPos(msg_num=settings["msg_num"],
                                    emb_dim=settings["emb_dim"],
