@@ -7,8 +7,8 @@ print(torch.cuda.is_available())
 force_reload    = False
 train           = True
 dataset_name    = "2Sphere"
-model_ident     = "Forward"
-bundle_size     = 1 
+model_ident     = "Push_Bundle"
+bundle_size     = 3 
 forward_steps   = 5
 
 pre_transform = T.Compose([T.Cartesian(False),
