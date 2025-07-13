@@ -283,9 +283,9 @@ class DEM_Dataset(InMemoryDataset):
 
                 push_forward_steps = np.random.randint(0,self.forward_step_max+1)
                 MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
-
-                for forward_step in range(push_forward_steps):
-                    par_inp, BC, MatlabTopology = self.Rollout_step(par_inp, BC, MatlabTopology)
+                with torch.inference_mode():
+                    for forward_step in range(push_forward_steps):
+                        par_inp, BC, MatlabTopology = self.Rollout_step(par_inp, BC, MatlabTopology)
 
                 if self.noise_factor > 0:
                     standard_deviation = self.noise_factor*R_avg
