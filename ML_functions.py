@@ -121,7 +121,7 @@ def GetScales(dataset,scale_name):
               "y_mean":     dataset.y.mean(dim=0).tolist(),
               "y_std":      dataset.y.std(dim=0).tolist()}
     
-    filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name[:-3]}_scales")
+    filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name}_scales")
     with open(filename,'w') as f: 
         json.dump(scales,f)
     return scales
@@ -130,7 +130,7 @@ class Rescale:
     """Rescale output based on standardization during training
     """
     def __init__(self,scale_name):
-        self.filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name[:-3]}_scales")
+        self.filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name}_scales")
         with open(f"{self.filename}.json") as json_file: 
             self.scales = json.load(json_file)
         self.y_mean = self.scales["y_mean"]
@@ -226,7 +226,7 @@ class DEM_Dataset(InMemoryDataset):
         self.bundle_size = bundle_size
         self.model = model
         self.model_ident = model_ident
-        self.scale_name = f"{self.file_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.Dataset_type}"
+        self.scale_name = f"{self.file_name}_bund{self.bundle_size}_push{self.forward_step_max}"
 
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
         self.load(os.path.join(self.processed_data_path,self.processed_file_names[0]))
@@ -239,9 +239,10 @@ class DEM_Dataset(InMemoryDataset):
     
     @property
     def processed_file_names(self):
-        processed_file_name = f"{self.file_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.Dataset_type}.pt"
-        if self.forward_step_max > 0:
-              processed_file_name = f"{self.file_name}_{self.model_ident}_{self.Dataset_type}.pt"
+        if self.forward_step_max == 0:
+            processed_file_name = f"{self.file_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.Dataset_type}.pt"
+        else:
+            processed_file_name = f"{self.file_name}_{self.model_ident}_{self.Dataset_type}.pt"
         return [processed_file_name]
     
     def download(self):
