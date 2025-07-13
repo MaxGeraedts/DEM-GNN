@@ -267,7 +267,7 @@ class DEM_Dataset(InMemoryDataset):
 
         if self.forward_step_max > 0:
             Simulation = LearnedSimulator(self.model,
-                                          scale_function=Rescale(self.file_name),
+                                          scale_function=Rescale(f"{self.file_name}_bund{self.bundle_size}"),
                                           transform = T.Compose([self.pre_transform,NormalizeData(self.file_name)]))
             self.Rollout_step = Simulation.Rollout_Step
 
