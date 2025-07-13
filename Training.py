@@ -7,7 +7,7 @@ print(torch.cuda.is_available())
 force_reload    = False
 train           = True
 dataset_name    = "2Sphere"
-model_ident     = "BundleTest"
+model_ident     = "Forward"
 bundle_size     = 1 
 forward_steps   = 5
 

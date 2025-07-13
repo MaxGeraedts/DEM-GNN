@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch_geometric.data import Data
 from tqdm import tqdm
@@ -344,7 +345,7 @@ def GetEdgeIdx(top,real_idx):
     edge_index = torch.from_numpy(np.concatenate((top_r,top_v),axis=0)).long().t().contiguous()
     return edge_index 
     
-def ToPytorchData(par_data,bc,tol=0.0,topology=None, label_data=None,center=False):
+def ToPytorchData(par_data,bc,tol:float=0.0,topology:bool=None, label_data:bool=None,center:bool=False)->tuple[Data,npt.NDArray]:
     """Get pytorch data object from particle properties and boundary conditions
 
     Args:

@@ -236,9 +236,9 @@ class DEM_Dataset(InMemoryDataset):
     
     @property
     def processed_file_names(self):
-        processed_file_name = f"{self.file_name}_b{self.bundle_size}_{self.Dataset_type}"
+        processed_file_name = f"{self.file_name}_bund{self.bundle_size}_{self.Dataset_type}"
         if self.forward_step_max > 0: 
-            processed_file_name += f"_Push{self.forward_step_max}"
+            processed_file_name += f"_push{self.forward_step_max}"
         processed_file_name  += ".pt"  
         return [processed_file_name]
     
@@ -480,15 +480,16 @@ def SaveModelInfo(model,dataset_name:str,model_ident:str):
 
 def SaveTrainingInfo(dataset,trainer):
     TrainingInfo = {"super_tol":dataset.super_tol,
-                 "tol":dataset.tol,
-                 "noise_factor":dataset.noise_factor,
-                 "batch_size":trainer.batch_size,
-                 "learning_rate":trainer.lr,
-                 "bundle_size":dataset.bundle_size,
-                 "push_forward_step_max":dataset.forward_step_max}
-    if dataset.forward_step_max > 0:
-        filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_Push_TrainingInfo.json")
-    else:
-        filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_TrainingInfo.json")
+                    "tol":dataset.tol,
+                    "noise_factor":dataset.noise_factor,
+                    "batch_size":trainer.batch_size,
+                    "learning_rate":trainer.lr,
+                    "bundle_size":dataset.bundle_size,
+                    "push_forward_step_max":dataset.forward_step_max}
+    
+    if dataset.model is not None: 
+        TrainingInfo["model_name"] = trainer.model_name
+
+    filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_TrainingInfo.json")
     with open(filename,'w') as f: 
         json.dump(TrainingInfo,f)
