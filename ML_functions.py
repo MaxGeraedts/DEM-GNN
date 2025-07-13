@@ -1,6 +1,5 @@
 # Imports
 import torch
-import torch.nn.functional as F
 from torch_geometric.data import Batch, Data, InMemoryDataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import MessagePassing, EdgeConv, GCNConv
@@ -8,25 +7,22 @@ from torch_geometric.nn.models import MLP
 import torch_geometric.transforms as T
 
 import numpy as np
+import numpy.typing as npt
 import os
 
 from tqdm import tqdm, trange
 from typing import Literal
 
-from IPython.display import clear_output
-import matplotlib.pyplot as plt
 import json
 
 from Encoding import ToPytorchData, ConstructTopology, TopologyFromPlausibleTopology, GetLength, load
-# Rollout
-def MaskTestData(dataset_name,dataset_type: Literal["train","validate","test"]):
-    """Masks out testdata from rawdata array
 
-    Args:
-        dataset_name (string): Name of the dataset
+# Rollout
+def MaskTestData(dataset_name:str,dataset_type: Literal["train","validate","test"])->tuple[npt.NDArray,npt.NDArray,npt.NDArray]:
+    """Masks out data from rawdata arrays
 
     Returns:
-        tuple: [data, top, bc]
+        tuple: [data, topology, boundary_conditions]
     """
     type_dic= {"train": 0, "validate":1, "test":2}
     loaded_data = load(dataset_name)
@@ -45,7 +41,7 @@ class LearnedSimulator:
         self.transform = transform
         self.bundle_size = model.bundle_size
 
-    def BCrollout(self,show_tqdm):
+    def BCrollout(self,show_tqdm:bool)->list[npt.NDArray]:
         if show_tqdm: print("Calculating BC")
         BC_rollout = np.empty((GetLength(self.par_data),6,9))
         BC_t=np.copy(self.BC)
@@ -54,7 +50,7 @@ class LearnedSimulator:
             BC_rollout[t] = BC_t
         return BC_rollout
     
-    def GroundTruth_Rollout(self,show_tqdm):
+    def GroundTruth_Rollout(self,show_tqdm:bool)->npt.NDArray:
         if show_tqdm: print("Collecting Ground Truth Rollout")
         GroundTruth = np.empty(GetLength(self.par_data),dtype=object)
         for t in trange(GetLength(self.par_data),disable = not show_tqdm):
@@ -63,7 +59,7 @@ class LearnedSimulator:
             GroundTruth[t].MatlabTopology = MatlabTopology
         return GroundTruth
     
-    def Rollout_Step(self,par_inp, BC,MatlabTopology, ML_Rollout: list = None):
+    def Rollout_Step(self,par_inp:npt.NDArray, BC:npt.NDArray,MatlabTopology:npt.NDArray, ML_Rollout: list[object] = None):
 
         # Convert raw data to PyTorch Graphdata
         input_data = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
@@ -88,7 +84,7 @@ class LearnedSimulator:
 
         return par_inp, BC, MatlabTopology
     
-    def MLRollout(self,show_tqdm):
+    def MLRollout(self,show_tqdm:bool)->list[object]:
         if show_tqdm: print("Calculating Learned Rollout")
         with torch.inference_mode():
             # Initiate Rollout
@@ -287,9 +283,9 @@ class DEM_Dataset(InMemoryDataset):
 
                 push_forward_steps = np.random.randint(0,self.forward_step_max+1)
                 MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
-                with torch.inference_mode(): 
-                    for forward_step in range(push_forward_steps):
-                        par_inp, BC, MatlabTopology = self.Rollout_step(par_inp, BC, MatlabTopology)
+
+                for forward_step in range(push_forward_steps):
+                    par_inp, BC, MatlabTopology = self.Rollout_step(par_inp, BC, MatlabTopology)
 
                 if self.noise_factor > 0:
                     standard_deviation = self.noise_factor*R_avg

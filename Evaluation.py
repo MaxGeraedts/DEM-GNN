@@ -3,7 +3,7 @@ from tqdm import tqdm, trange
 import numpy as np
 from ML_functions import LearnedSimulator, NormalizeData, GetModel, Rescale, NormalizePos, MaskTestData
 
-def GetAllContactpoints(data):
+def GetAllContactpoints(data:object):
     real_edge = data.edge_index[:,data.edge_mask]
     origins = real_edge[0,:]
     destinations = real_edge[1,:]
@@ -31,7 +31,7 @@ def EffectiveE(data,idx):
     Youngs_mod = data.x[idx,1]
     return (1-torch.square(poisson_ratio))/Youngs_mod
     
-def EffectiveStiffness(data):
+def EffectiveStiffness(data:object):
     """Calculate relative stiffnes Nij for all contacts
 
     Args:

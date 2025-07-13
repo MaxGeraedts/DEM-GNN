@@ -5,7 +5,8 @@ import pyvista as pv
 import os 
 from tqdm import tqdm, trange
 
-from Evaluation import GetVolumeAndExtremeDims
+from Evaluation import GetVolumeAndExtremeDims, GetContactForce
+
 def PlotBoundaryBox(BC,ax,colour,linestyle,linewidth=1):
     maxdim = GetVolumeAndExtremeDims(BC)[1]
     mesh = np.array(np.meshgrid(maxdim[0],maxdim[1],maxdim[2])).T.reshape(-1,3)

@@ -8,7 +8,7 @@ force_reload    = False
 train           = True
 dataset_name    = "2Sphere"
 model_ident     = "BundleTest"
-bundle_size     = 3 
+bundle_size     = 1 
 forward_steps   = 5
 
 pre_transform = T.Compose([T.Cartesian(False),
