@@ -257,7 +257,6 @@ class DEM_Dataset(InMemoryDataset):
     
     def SliceAndReshapeData(self,par_data,t,push_forward_steps):
         pos_slice = par_data[t+push_forward_steps*self.bundle_size:t+(push_forward_steps+1)*self.bundle_size,:,:3]
-        #pos_slice_2D = np.reshape(np.swapaxes(pos_slice,0,1),(-1,3*self.bundle_size))
         pos_slice_2D = np.concatenate([pos for pos in pos_slice],axis=1)
         return pos_slice_2D
     
@@ -433,7 +432,11 @@ class Trainer:
 
 def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2,bundle_size=1):
     try: 
-        model_path = os.path.join(os.getcwd(),"Models",f"{model_name}")
+        if model_name[-4:] == "Push":
+            model_path = os.path.join(os.getcwd(),"Models",f"{model_name[:-5]}")
+        else:
+            model_path = os.path.join(os.getcwd(),"Models",f"{model_name}")
+            
         with open(f"{model_path}_ModelInfo.json") as json_file: settings = json.load(json_file)
 
         model = GCONV_Model_RelPos(msg_num=settings["msg_num"],

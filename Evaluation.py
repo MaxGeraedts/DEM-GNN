@@ -1,6 +1,8 @@
 import torch
+import torch_geometric.transforms as T
 from tqdm import tqdm, trange
 import numpy as np
+from typing import Literal
 from ML_functions import LearnedSimulator, NormalizeData, GetModel, Rescale, NormalizePos, MaskTestData
 
 def GetAllContactpoints(data:object):
@@ -76,9 +78,9 @@ def GetContactForce(data):
         array: 3xNcontact array
     """
     i,j = data.edge_index[1,:], data.edge_index[0,:]
-    gamma = GetGamma(data)
-    Nij = EffectiveStiffness(data)
-    Fij_size = Nij*(gamma*torch.sqrt(gamma))
+    relative_displacement = GetGamma(data)
+    Eff_Stiffness = EffectiveStiffness(data)
+    Fij_size = Eff_Stiffness*(relative_displacement*torch.sqrt(relative_displacement))
     contactnormal = (data.pos[i]-data.pos[j])
     contactnormal = torch.div(contactnormal.T,torch.norm(contactnormal,dim=1))
     Fij = Fij_size*contactnormal
@@ -184,13 +186,51 @@ def WallReaction(datalist,BC_rollout,Fcontact):
         S_wall[:,t,:] = F_wall[:,t,:]/A_wall.T
     return F_wall, S_wall
 
-def AggregatedRollouts(AggregatedArgs,Simulation):
+def NumpyGroupby(group_key,group_value):
+    index_sort = group_key.argsort()
+    key_sort = group_key[index_sort]
+    value_sort = group_value[index_sort,:]
+
+    index_split = np.unique(key_sort,return_index=True)[1][1:]
+    value_grouped = np.split(value_sort,index_split)
+
+    return value_grouped
+
+def NormalizedResultantForce(data):
+    force = GetContactForce(data).numpy()
+    contact = data.edge_index.T.numpy()
+
+    force_grouped = NumpyGroupby(group_key=contact[:,1],group_value=force)
+
+    Fres_vectors = np.array([np.sum(group,axis=0) for group in force_grouped])
+    Fres_norm = np.linalg.norm(Fres_vectors,axis=1)
+
+    F_vectors_norm = [np.linalg.norm(group,axis=1,keepdims=True) for group in force_grouped]
+    F_vectors_norm_sum = [np.sum(group).item() for group in F_vectors_norm]
+
+    Fres_size_normalized  = Fres_norm/F_vectors_norm_sum
+    return Fres_size_normalized
+
+def AggregatedRollouts(dataset_name:str,model_ident:str,AggregatedArgs:tuple):
+    model = GetModel(f"{dataset_name}_{model_ident}")[0]
+    scale_name = f"{dataset_name}_bund{model.bundle_size}"
+    transform = T.Compose([T.Cartesian(False),T.Distance(norm=False,cat=True),NormalizeData(scale_name)])
+    Simulation = LearnedSimulator(model, scale_function = Rescale(scale_name),transform = transform)
+
+    datalist_ML = []
+    datalist_GT = []
+    for sample_idx in trange(AggregatedArgs[0].shape[0]):
+        Simulation.Rollout(*AggregatedArgs,sample_idx)
+        datalist_ML.append(Simulation.ML_rollout)
+        datalist_GT.append(Simulation.GroundTruth)
+    return datalist_ML, datalist_GT
+
+def DatalistToPosArray(datalist,AggregatedArgs):
     pos_test = torch.from_numpy(np.array(AggregatedArgs[0][:,:,:,:3],float))
     pos_ML = torch.zeros_like(pos_test)
 
-    for sample_idx in trange(pos_test.shape[0]):
-        Simulation.Rollout(*AggregatedArgs,sample_idx)
-        pos_ML[sample_idx,:,:] = torch.stack([data.pos[data.mask] for data in Simulation.ML_rollout]) 
+    for sample_idx in len(datalist):
+        pos_ML[sample_idx,:,:] = torch.stack([data.pos[data.mask] for data in datalist])
 
     return pos_test, pos_ML
 
@@ -206,14 +246,63 @@ def EvaluateAggregatedRollouts(pos_test,pos_ML,par_data):
     normalized_dist_mean = normalized_dist.mean()
     return loss, dist_mean, normalized_dist_mean
 
-def Evaluate(dataset_name,model_ident,transform,AggregatedArgs):
-    model = GetModel(f"{dataset_name}_{model_ident}")[0]
-    Simulation = LearnedSimulator(model, scale_function = Rescale(dataset_name),transform = transform)
-
-    pos_test, pos_ML = AggregatedRollouts(AggregatedArgs,Simulation)
+class Evaluation:
+    def __init__(self,datalist_ML:list[list],datalist_GT:list[list],mode=Literal["geometric","mechanics_sum","mechanics_mean"],print_results:bool=False):
+        self.datalist_ML = datalist_ML
+        self.datalist_GT = datalist_GT
+        self.mode = mode
+        self.mode = mode
+        self.print_results = print_results
+        if mode == "mechanics_sum":
+            self.aggregation_function = np.sum
+            self.description = "Mean sum of normalized resultantant forces"
+        if mode == "mechanics_mean":
+            self.aggregation_function = np.mean
+            self.description = "Mean of normalized resultantant forces"
+            
+    def __call__(self, *args, **kwds):
+        model_prediction= np.array([[self.aggregation_function(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in self.datalist_ML])
+        ground_truth    = np.array([[self.aggregation_function(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in self.datalist_GT])
+        
+        contents = {'Ground truth:': np.mean(model_prediction), 
+                    "Model:": np.mean(ground_truth)} 
+        
+        if self.print_results == True:
+            print(self.description)
+            for metric, value in contents.items():
+                print(f"{metric:<50}{value:.6f}")         
+        
+def EvaluateGeometric(datalist,AggregatedArgs):
+    pos_test, pos_ML = DatalistToPosArray(datalist,AggregatedArgs)
     loss, dist_mean, normalized_dist_mean = EvaluateAggregatedRollouts(pos_test,pos_ML,AggregatedArgs[0])
 
-    contents = {'L2 Norm:': loss, "Mean Euclidean distance:": dist_mean, "Radius normalized mean Euclidean distance:": normalized_dist_mean}
+    contents = {'L2 Norm:': loss, 
+                "Mean Euclidean distance:": dist_mean, 
+                "Radius normalized mean Euclidean distance:": normalized_dist_mean}
     for metric, value in contents.items():
         print(f"{metric:<50}{value:4f}")
-    return loss, dist_mean, normalized_dist_mean
+    return datalist, loss, dist_mean, normalized_dist_mean
+
+def EvaluateMechanics(datalist_GT:list[list], datalist_ML:list[list], print_results:bool=False):
+    norm_Fres_mean_ML = np.array([[np.mean(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in datalist_ML])
+    norm_Fres_mean_GT = np.array([[np.mean(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in datalist_GT])
+    
+    norm_Fres_sum_ML = np.array([[np.sum(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in datalist_ML])
+    norm_Fres_sum_GT = np.array([[np.sum(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in datalist_GT])
+
+    contents_mean = {'Ground truth:': np.mean(norm_Fres_mean_ML), 
+                    "Model:": np.mean(norm_Fres_mean_GT)}  
+    
+    contents_sum = {'Ground truth:': np.mean(norm_Fres_sum_ML), 
+                    "Model:": np.mean(norm_Fres_sum_GT)} 
+    
+    if print_results == True:
+        print("Normalized mean resultant forces per particle")
+        for metric, value in contents_mean.items():
+            print(f"{metric:<50}{value:.6f}")
+
+        print("Normalized sum of resultant forces per particle")
+        for metric, value in contents_sum.items():
+            print(f"{metric:<50}{value:.6f}")
+
+    return norm_Fres_mean_ML,norm_Fres_mean_GT, norm_Fres_sum_ML, norm_Fres_sum_GT,contents_mean,contents_sum
