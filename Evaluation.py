@@ -170,21 +170,26 @@ def GetWallArea(BC):
     A_wall = [[y*z,x*z,x*y,y*z,x*z,x*y]]
     return np.array(A_wall)
 
-def WallReaction(datalist,BC_rollout,Fcontact):
-    F_wall = torch.zeros((BC_rollout[0].shape[0],len(datalist),3))
-    S_wall = torch.zeros_like(F_wall)
-    for t,data in enumerate(datalist): 
-        F_PWcontact = Fcontact[t][np.invert(data.edge_mask),:]
-        Wallcontact = data.MatlabTopology[data.MatlabTopology[:,1]<0]
-        Wallcontact[:,1] += 2
-        Wallcontact[:,1] *= -1
-        Wall_idx = Wallcontact[:,1]
-        F_PWcontact.shape, Wall_idx.shape
-        A_wall = GetWallArea(BC_rollout[t])
-        for i,Wall in enumerate(Wall_idx):
-            F_wall[Wall,t,:] += F_PWcontact[i,:]
-        S_wall[:,t,:] = F_wall[:,t,:]/A_wall.T
-    return F_wall, S_wall
+def GetWallForce(data):
+    F_wall = np.zeros((6,3))
+    Fcontact = GetContactForce(data).numpy()
+    F_PWcontact = Fcontact[np.invert(data.edge_mask),:]
+
+    Wallcontact = data.MatlabTopology[data.MatlabTopology[:,1]<0]
+    Wallcontact[:,1] += 2
+    Wallcontact[:,1] *= -1
+    Wall_idx = Wallcontact[:,1]
+
+    for i,Wall in enumerate(Wall_idx):
+        F_wall[Wall,:] += F_PWcontact[i,:]
+
+    return F_wall
+
+def GetWallStress(datalist,BC_rollout):
+    A_wall = np.array([np.squeeze(GetWallArea(BC)) for BC in BC_rollout])
+    F_wall = np.array([np.linalg.norm(GetWallForce(data),axis=1) for data in datalist])
+    S_wall = F_wall/A_wall
+    return S_wall
 
 def NumpyGroupby(group_key,group_value):
     index_sort = group_key.argsort()
@@ -313,4 +318,15 @@ def CompareModels(dataset_name:str, model_idents:list[str], Evaluation_function)
             else:
                 metric_dict['Ground truth'] = value
     
+    print("\n",Evaluation_function.description,"\n") 
+    print(f"{"Ground truth":<50}{metrics["Ground truth"]:.10f}","\n")
+    for metric, value in metrics.items():
+        if metric != "Ground truth": print(f"{metric:<50}{value:.3f}")
+
     return metric_dict
+
+def CoordinationNumber(datalist):
+    contact_num = np.array([data.edge_index.shape[1] for data in datalist])
+    par_num = np.array([data.mask.sum().item() for data in datalist])
+    coordination_number = contact_num/par_num
+    return coordination_number

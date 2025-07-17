@@ -4,6 +4,7 @@ import torch
 import pyvista as pv
 import os 
 from tqdm import tqdm, trange
+from typing import Type
 
 from Evaluation import GetVolumeAndExtremeDims, GetContactForce
 
@@ -116,24 +117,15 @@ def PlotAxes(bc_rollout,real_rollout,ML_rollout,dim,ax,normalize):
     ax.set(xlabel='Timestep',ylabel=f'{coorstr[dim]} Coordinate (R normalized)')
     ax.set_title(f'{coorstr[dim]} Coordinate')
 
-# Convert list of pytorch data objects to numpy array of particle data
-def DataListToPositionArray(Rollout,datalist):
-    real_pos = np.zeros((Rollout.timesteps,2,3))
-    real_data = np.zeros((Rollout.timesteps,2,7))
-    for t,data in enumerate(datalist):
-        real_pos[t] = data.pos[data.mask]
-        real_data[t] = data.x[data.mask]
-    data_array = np.concatenate((real_pos,real_data),axis=2)
-    return data_array
 
 # Plot all three cartesion dimensions
-def PlotXYZ(Rollouts: object,t_max: int,normalize: bool):
+def PlotXYZ(Rollout: object,t_max: int,normalize: bool):
     fig, axes = plt.subplots(1,3,sharey=True)
     fig.set_figwidth(19)
-    ML_data_array = DataListToPositionArray(Rollouts,Rollouts.ML_rollout)
-    DEM_data_array = DataListToPositionArray(Rollouts,Rollouts.GroundTruth)
+    ML_data_array = np.array([np.concatenate((data.pos[data.mask],data.x[data.mask]),axis=1) for data in Rollout.ML_rollout])
+    DEM_data_array = np.array([np.concatenate((data.pos[data.mask],data.x[data.mask]),axis=1) for data in Rollout.ML_rollout])
     for i, ax in enumerate(axes):   
-        PlotAxes(Rollouts.BC_rollout,
+        PlotAxes(Rollout.BC_rollout,
                 DEM_data_array[:min(100,t_max)],
                 ML_data_array[:t_max],
                 i,ax, normalize)
@@ -235,7 +227,7 @@ def PlotFres(Fsum_GT,Fsum_ML):
     return fig
 
 def PlotFnormDistribution(ax,quantiles,Fnorm,color):
-    t = np.arange(Fnorm.size()[0])
+    t = np.arange(Fnorm.shape[0])
     for i,quantile in enumerate(quantiles):
         quantmin  = np.percentile(Fnorm,quantile,1)
         quantmax = np.percentile(Fnorm,(100-quantile),1)
@@ -262,23 +254,24 @@ def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles,sharey=False):
     ax[1].set_xlabel("Increment")
     return fig, ax
 
-from Evaluation import WallReaction
-def PlotStressComparison(Rollout,Fcontact_GT,Fcontact_ML,Plot_ML):
+from Evaluation import GetWallStress
+from ML_functions import LearnedSimulator
+
+def PlotStressComparison(Rollout:Type[LearnedSimulator],plot_ml:bool=True):
+
     fig, axs = plt.subplots(1,3,figsize=(17,5),sharey=True)
-    F_wall, S_wall = WallReaction(Rollout.GroundTruth,Rollout.BC_rollout,Fcontact_GT)
-    S_wall = S_wall.norm(dim=2)
+    S_wall = GetWallStress(Rollout.GroundTruth,Rollout.BC_rollout)
 
     for dim in [0,1,2]:
-        axs[dim].plot(S_wall[dim,:]  , label="Groundtruth: Top wall"   , color="tab:blue", alpha=0.3)
-        axs[dim].plot(S_wall[dim+3,:], label="Groundtruth: Bottom wall", color="tab:blue", linestyle=(0,(5,7)))
+        axs[dim].plot(S_wall[:,dim]  , label="Groundtruth: Top wall"   , color="tab:blue", alpha=0.3)
+        axs[dim].plot(S_wall[:,dim+3], label="Groundtruth: Bottom wall", color="tab:blue", linestyle=(0,(5,7)))
         axs[dim].set_xlabel("Increment",fontweight='bold')
 
-    if Plot_ML == True:
-        F_wall, S_wall = WallReaction(Rollout.ML_rollout,Rollout.BC_rollout,Fcontact_ML)
-        S_wall = S_wall.norm(dim=2)
+    if plot_ml == True:
+        S_wall = GetWallStress(Rollout.ML_rollout,Rollout.BC_rollout)
         for dim in [0,1,2]:
-            axs[dim].plot(S_wall[dim,:]  , label="Model: Top wall"   , color="tab:red", alpha=0.3)
-            axs[dim].plot(S_wall[dim+3,:], label="Model: Bottom wall", color="tab:red", linestyle=(0,(5,7)))    
+            axs[dim].plot(S_wall[:,dim]  , label="Model: Top wall"   , color="tab:red", alpha=0.3)
+            axs[dim].plot(S_wall[:,dim+3], label="Model: Bottom wall", color="tab:red", linestyle=(0,(5,7)))    
 
     axs[2].legend()
     fig.suptitle("Stress on Boundary Walls",

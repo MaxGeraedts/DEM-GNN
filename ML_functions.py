@@ -43,9 +43,9 @@ class LearnedSimulator:
 
     def BCrollout(self,show_tqdm:bool)->list[npt.NDArray]:
         if show_tqdm: print("Calculating BC")
-        BC_rollout = np.empty((GetLength(self.par_data),6,9))
+        BC_rollout = np.empty((self.timesteps,self.BC.shape[0],self.BC.shape[1]))
         BC_t=np.copy(self.BC)
-        for t in trange(GetLength(self.par_data),disable = not show_tqdm):
+        for t in trange(self.timesteps,disable = not show_tqdm):
             BC_t[:,:3] = self.BC[:,:3]+(t+1)*self.BC[:,-3:] 
             BC_rollout[t] = BC_t
         return BC_rollout
