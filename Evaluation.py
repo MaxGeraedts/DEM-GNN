@@ -281,6 +281,7 @@ class Evaluation:
         return metrics
     
     def EvaluateMechanics(self,datalist_ML,datalist_GT):
+        #CHECK NORMALIZATION!
         model_prediction= np.array([[self.aggregation_function(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in tqdm(datalist_ML,disable=self._disable_tqdm)])
         metrics = {"Model:": np.mean(model_prediction).item()}
 
