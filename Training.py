@@ -5,17 +5,20 @@ import os
 
 print(torch.cuda.is_available())
 
-force_reload    = False
+force_reload    = True
 train           = True
-dataset_name    = "2Sphere"
-model_ident     = "Test64"
+dataset_name    = "N400_Mono"
+model_ident     = "Test16"
 bundle_size     = 3 
 forward_steps   = 5
 
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 
-os.mkdir(os.path.join(os.getcwd(),"Data","processed",dataset_name))
+try:
+    os.mkdir(os.path.join(os.getcwd(),"Data","processed",dataset_name))
+except OSError as e:
+    print("Error:", e)
 
 [dataset_train, dataset_val, dataset_test]      = [DEM_Dataset(dataset_name,
                                                                dataset_type,
@@ -25,7 +28,11 @@ os.mkdir(os.path.join(os.getcwd(),"Data","processed",dataset_name))
                                                                for dataset_type in ["train","validate","test"]]
 
 if train == True:
-    os.mkdir(os.path.join(os.getcwd(),"Models",dataset_name))
+    try: 
+        os.mkdir(os.path.join(os.getcwd(),"Models",dataset_name))
+    except OSError as e:
+        print("Error:", e)
+    
     model_name=f"{dataset_name}_{model_ident}"
     model, msg = GetModel(dataset_name,
                           model_ident,
