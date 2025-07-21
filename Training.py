@@ -1,6 +1,7 @@
 import torch.cuda
 import torch_geometric.transforms as T
 from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, SaveTrainingInfo
+import os
 
 print(torch.cuda.is_available())
 
@@ -14,6 +15,8 @@ forward_steps   = 5
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 
+os.mkdir(os.path.join(os.getcwd(),"Data","processed",dataset_name))
+
 [dataset_train, dataset_val, dataset_test]      = [DEM_Dataset(dataset_name,
                                                                dataset_type,
                                                                force_reload     = force_reload,
@@ -22,8 +25,10 @@ pre_transform = T.Compose([T.Cartesian(False),
                                                                for dataset_type in ["train","validate","test"]]
 
 if train == True:
+    os.mkdir(os.path.join(os.getcwd(),"Models",dataset_name))
     model_name=f"{dataset_name}_{model_ident}"
-    model, msg = GetModel(model_name,
+    model, msg = GetModel(dataset_name,
+                          model_ident,
                           msg_num=2,
                           emb_dim=32,
                           edge_dim=4,
@@ -37,12 +42,13 @@ if train == True:
                         batch_size=32,
                         lr=0.0000001,
                         epochs=5,
-                        model_name=model_name)
+                        dataset_name=dataset_name,
+                        model_ident=model_ident)
         
         trainer.train_loop()
         SaveTrainingInfo(dataset_train,trainer)
 
-    model, msg = GetModel(model_name)
+    model, msg = GetModel(dataset_name,model_ident)
     
 if train == True and msg == 'Loaded model':
     [dataset_train]      = [DEM_Dataset(dataset_name,
@@ -59,6 +65,7 @@ if train == True and msg == 'Loaded model':
                       batch_size=32,
                       lr=0.0000001,
                       epochs=5,
-                      model_name=f"{dataset_name}_{model_ident}_Push")    
+                      dataset_name=dataset_name,
+                      model_ident=f"{model_ident}_Push")    
     trainer.train_loop()
     SaveTrainingInfo(dataset_train,trainer)

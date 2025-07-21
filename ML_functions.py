@@ -203,7 +203,7 @@ def DataMask(data,test_step: int = 20, val_step: int = 10):
     return np.invert(train.astype(bool)), val.astype(bool), test.astype(bool)
 
 class DEM_Dataset(InMemoryDataset):
-    def __init__(self,file_name: str,
+    def __init__(self,dataset_name: str,
                  Dataset_type: Literal["train","validate","test"],
                  force_reload=False,pre_transform=None, transform=None, pre_filter=None,
                  root: str = os.path.join(os.getcwd(),"Data"),
@@ -216,8 +216,8 @@ class DEM_Dataset(InMemoryDataset):
                  model_ident:str=None):
         
         self.raw_data_path = os.path.join(root,"raw")
-        self.processed_data_path = os.path.join(root,"processed")
-        self.file_name = file_name
+        self.dataset_name = dataset_name
+        self.processed_data_path = os.path.join(root,"processed",dataset_name)
         self.Dataset_type = Dataset_type
         self.super_tol = super_tol
         self.tol = tol
@@ -226,23 +226,23 @@ class DEM_Dataset(InMemoryDataset):
         self.bundle_size = bundle_size
         self.model = model
         self.model_ident = model_ident
-        self.scale_name = f"{self.file_name}_bund{self.bundle_size}"
+        self.scale_name = f"{self.dataset_name}_bund{self.bundle_size}"
 
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
         self.load(os.path.join(self.processed_data_path,self.processed_file_names[0]))
 
     @property 
     def raw_file_names(self):
-        return[f"{self.file_name}_Data.npy",
-               f"{self.file_name}_Topology.npy",
-               f"{self.file_name}_BC.npy"]
+        return[f"{self.dataset_name}_Data.npy",
+               f"{self.dataset_name}_Topology.npy",
+               f"{self.dataset_name}_BC.npy"]
     
     @property
     def processed_file_names(self):
         if self.forward_step_max == 0:
-            processed_file_name = f"{self.file_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.Dataset_type}.pt"
+            processed_file_name = f"{self.dataset_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.Dataset_type}.pt"
         else:
-            processed_file_name = f"{self.file_name}_{self.model_ident}_{self.Dataset_type}.pt"
+            processed_file_name = f"{self.dataset_name}__push{self.forward_step_max}_{self.model_ident}_{self.Dataset_type}.pt"
         return [processed_file_name]
     
     def download(self):
@@ -370,13 +370,15 @@ class GCONV_Model_RelPos(torch.nn.Module):
     
 # Training
 class Trainer:
-    def __init__(self,model,dataset_train,dataset_val,batch_size,lr,epochs,model_name,loss_fn=torch.nn.MSELoss()):
+    def __init__(self,model,dataset_train,dataset_val,batch_size,lr,epochs,dataset_name,model_ident,loss_fn=torch.nn.MSELoss()):
         self.model = model
         self.batch_size = batch_size
         self.lr = lr
         self.epochs = epochs
         self.loss_fn = loss_fn
-        self.model_name = model_name
+        self.dataset_name = dataset_name
+        self.model_ident = model_ident
+        self.model_name = f"{dataset_name}_{model_ident}"
 
         self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
         print("Device: ", self.device)
@@ -421,21 +423,22 @@ class Trainer:
 
             if mean_val_loss < best_model_loss:
                 best_model_loss = mean_val_loss
-                torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.model_name))
+                torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name))
             
             if epoch % 100 == 0:
-                np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Training_Loss"),train_loss)
-                np.save(os.path.join(os.getcwd(),"Models",f"{self.model_name}_Validation_Loss"),val_loss)
+                np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss"),train_loss)
+                np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss"),val_loss)
 
             print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.10f}  |  Mean Validation Loss: {mean_val_loss:.10f}",flush=True)
 
 
-def GetModel(model_name,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2,bundle_size=1):
+def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2,bundle_size=1):
+    model_name = f"{dataset_name}_{model_ident}"
     try: 
         if model_name[-4:] == "Push":
-            model_path = os.path.join(os.getcwd(),"Models",f"{model_name[:-5]}")
+            model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name[:-5]}")
         else:
-            model_path = os.path.join(os.getcwd(),"Models",f"{model_name}")
+            model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}")
             
         with open(f"{model_path}_ModelInfo.json") as json_file: settings = json.load(json_file)
 
@@ -477,7 +480,7 @@ def SaveModelInfo(model,dataset_name:str,model_ident:str):
                  "out_dim": model.out_dim,
                  "num_layers":model.num_layers,
                  "bundle_size":model.bundle_size}
-    filename = os.path.join(os.getcwd(),"Models",f"{dataset_name}_{model_ident}_ModelInfo.json")
+    filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{model_ident}_ModelInfo.json")
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)
 
@@ -493,6 +496,6 @@ def SaveTrainingInfo(dataset,trainer):
     if dataset.model is not None: 
         TrainingInfo["model_name"] = trainer.model_name
 
-    filename = os.path.join(os.getcwd(),"Models",f"{trainer.model_name}_TrainingInfo.json")
+    filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,f"{trainer.model_name}_TrainingInfo.json")
     with open(filename,'w') as f: 
         json.dump(TrainingInfo,f)
