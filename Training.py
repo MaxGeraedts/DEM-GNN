@@ -8,7 +8,7 @@ print(torch.cuda.is_available())
 force_reload    = False
 train           = True
 dataset_name    = "2Sphere"
-model_ident     = "Push_Bundle"
+model_ident     = "Test64"
 bundle_size     = 3 
 forward_steps   = 5
 
@@ -29,9 +29,8 @@ if train == True:
     model_name=f"{dataset_name}_{model_ident}"
     model, msg = GetModel(dataset_name,
                           model_ident,
-                          msg_num=2,
-                          emb_dim=32,
-                          edge_dim=4,
+                          msg_num=4,
+                          emb_dim=16,
                           num_layers=2,
                           bundle_size=bundle_size)
     SaveModelInfo(model,dataset_name,model_ident)
@@ -39,9 +38,9 @@ if train == True:
     if msg == "No Trained model":
         print(f"Training {model_name}")
         trainer = Trainer(model, dataset_train,dataset_val,
-                        batch_size=32,
+                        batch_size=16,
                         lr=0.0000001,
-                        epochs=5,
+                        epochs=500,
                         dataset_name=dataset_name,
                         model_ident=model_ident)
         
@@ -62,9 +61,9 @@ if train == True and msg == 'Loaded model':
                                         for dataset_type in ["train"]]
     print(f"Training {model_name}_Push")
     trainer = Trainer(model, dataset_train,dataset_val,
-                      batch_size=32,
+                      batch_size=16,
                       lr=0.0000001,
-                      epochs=5,
+                      epochs=500,
                       dataset_name=dataset_name,
                       model_ident=f"{model_ident}_Push")    
     trainer.train_loop()
