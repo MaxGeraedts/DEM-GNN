@@ -242,7 +242,7 @@ class DEM_Dataset(InMemoryDataset):
         if self.forward_step_max == 0:
             processed_file_name = f"{self.dataset_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.Dataset_type}.pt"
         else:
-            processed_file_name = f"{self.dataset_name}__push{self.forward_step_max}_{self.model_ident}_{self.Dataset_type}.pt"
+            processed_file_name = f"{self.dataset_name}_bund{self.bundle_size}__push{self.forward_step_max}_{self.model_ident}_{self.Dataset_type}.pt"
         return [processed_file_name]
     
     def download(self):
