@@ -199,28 +199,35 @@ def NumpyGroupby(group_key,group_value):
     index_split = np.unique(key_sort,return_index=True)[1][1:]
     value_grouped = np.split(value_sort,index_split)
 
-    return value_grouped
+    return key_sort,value_grouped
 
 def NormalizedResultantForce(data):
     force = GetContactForce(data).numpy()
     contact = data.edge_index.T.numpy()
 
-    force_grouped = NumpyGroupby(group_key=contact[:,1],group_value=force)
+    key_sort,force_grouped = NumpyGroupby(group_key=contact[:,1],group_value=force)
 
-    Fres_vectors = np.array([np.sum(group,axis=0) for group in force_grouped])
+    unique_keys = np.astype(np.unique(key_sort),int)
+    num_particles = data.mask.sum().item()
+    force_grouped_indexed = [np.empty((6,3))]*num_particles
+    for i,index in enumerate(unique_keys):
+        force_grouped_indexed[index] = force_grouped[i]
+    force_grouped_indexed
+
+    Fres_vectors = np.array([np.sum(group,axis=0) for group in force_grouped_indexed])
     Fres_norm = np.linalg.norm(Fres_vectors,axis=1)
 
-    F_vectors_norm = [np.linalg.norm(group,axis=1,keepdims=True) for group in force_grouped]
+    F_vectors_norm = [np.linalg.norm(group,axis=1,keepdims=True) for group in force_grouped_indexed]
     F_vectors_norm_sum = [np.sum(group).item() for group in F_vectors_norm]
 
     Fres_size_normalized  = Fres_norm/F_vectors_norm_sum
     return Fres_size_normalized
 
 def AggregatedRollouts(dataset_name:str,model_ident:str,AggregatedArgs:tuple):
-    model = GetModel(f"{dataset_name}_{model_ident}")[0]
+    model = GetModel(dataset_name,model_ident)[0]
     scale_name = f"{dataset_name}_bund{model.bundle_size}"
-    transform = T.Compose([T.Cartesian(False),T.Distance(norm=False,cat=True),NormalizeData(scale_name)])
-    Simulation = LearnedSimulator(model, scale_function = Rescale(scale_name),transform = transform)
+    transform = T.Compose([T.Cartesian(False),T.Distance(norm=False,cat=True),NormalizeData(dataset_name,scale_name)])
+    Simulation = LearnedSimulator(model, scale_function = Rescale(dataset_name,scale_name),transform = transform)
 
     datalist_ML = []
     datalist_GT = []
@@ -287,7 +294,7 @@ class Evaluation:
 
         if datalist_GT is not None:
             ground_truth    = np.array([[self.aggregation_function(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in tqdm(datalist_GT,disable=self._disable_tqdm)])
-            metrics["Ground truth:"]  = np.mean(ground_truth).item()
+            metrics["Ground truth"]  = np.mean(ground_truth).item()
          
         return metrics
 
@@ -308,6 +315,7 @@ def CompareModels(dataset_name:str, model_idents:list[str], Evaluation_function)
 
     for i, model_ident in enumerate(model_idents):
         datalist_ML, datalist_GT = AggregatedRollouts(dataset_name,f"{model_ident}_Push",AggregatedArgs)
+        print(i)
         if i == 0:
             metrics = Evaluation_function(datalist_ML, datalist_GT)
         else:
@@ -320,8 +328,8 @@ def CompareModels(dataset_name:str, model_idents:list[str], Evaluation_function)
                 metric_dict['Ground truth'] = value
     
     print("\n",Evaluation_function.description,"\n") 
-    print(f"{"Ground truth":<50}{metrics["Ground truth"]:.10f}","\n")
-    for metric, value in metrics.items():
+    print(f"{"Ground truth":<50}{metric_dict["Ground truth"]:.10f}","\n")
+    for metric, value in metric_dict.items():
         if metric != "Ground truth": print(f"{metric:<50}{value:.3f}")
 
     return metric_dict

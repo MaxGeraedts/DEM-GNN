@@ -114,14 +114,14 @@ class LearnedSimulator:
         self.ML_rollout = self.MLRollout(show_tqdm)
 
 # Dataset
-def GetScales(dataset,scale_name):
+def GetScales(dataset,dataset_name:str,scale_name:str):
     scales = {"scale_x":    dataset.x.max(dim=0,keepdim=False)[0].tolist(),
               "edge_mean":  dataset.edge_attr.mean(dim=0).tolist(),
               "edge_std":   dataset.edge_attr.std(dim=0).tolist(),
               "y_mean":     dataset.y.mean(dim=0).tolist(),
               "y_std":      dataset.y.std(dim=0).tolist()}
     
-    filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name}_scales.json")
+    filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales.json")
     with open(filename,'w') as f: 
         json.dump(scales,f)
     return scales
@@ -129,8 +129,8 @@ def GetScales(dataset,scale_name):
 class Rescale:
     """Rescale output based on standardization during training
     """
-    def __init__(self,scale_name):
-        self.filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name}_scales")
+    def __init__(self,dataset_name,scale_name):
+        self.filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales")
         with open(f"{self.filename}.json") as json_file: 
             self.scales = json.load(json_file)
         self.y_mean = self.scales["y_mean"]
@@ -153,8 +153,8 @@ class Rescale:
 class NormalizeData(T.BaseTransform):
     r"""Scales node features to :math:`(0, 1)`. Standardizes edge attributes and optionally labels (zero mean, unit variance)
     """
-    def __init__(self,scale_name):
-        filename = os.path.join(os.getcwd(),"Data","processed",f"{scale_name}_scales")
+    def __init__(self,dataset_name:str,scale_name:str):
+        filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales")
         with open(f"{filename}.json") as json_file: 
             self.scales = json.load(json_file)
 
@@ -309,7 +309,7 @@ class DEM_Dataset(InMemoryDataset):
 
         print(f"Normalizing {self.Dataset_type} data")    
         if self.Dataset_type == "train" and self.forward_step_max == 0:
-            GetScales(Batch.from_data_list(data_list),self.scale_name)
+            GetScales(Batch.from_data_list(data_list),self.dataset_name,self.scale_name)
         self.normalize = NormalizeData(self.scale_name)
         data_list = [self.normalize(data) for data in tqdm(data_list)]
                 
