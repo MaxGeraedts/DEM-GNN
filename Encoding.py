@@ -9,64 +9,35 @@ import torch_geometric.transforms as T
 import scipy.io
 
 # Aggregate set of simulations on the drive to a single numpy array
-def AggregateRawData(data_dir:str,folder:str):
-    """Aggregate raw dataset in text files to a single numpy array
-
-    Args:
-        data_dir (str): Directory of all Matlab data 
-        folder (str): Name of dataset folder
-
-    Returns:
-        tuple[list,list,list]: agreggated simulations, aggregated topology ,aggregated boundary conditions
-    """
-    folder_dir = os.path.join(data_dir,folder,"Results")                        # Directory for all simulation results
-    top = []
-    coor = []
-    properties = []
-    data = []
-    data_start = []
-    bc = []
-    for name in tqdm(os.listdir(folder_dir)):                                   # For every simulation  
-        # Aggregate Global properties for every simulation
-        sim_dir = os.path.join(folder_dir,name)
-        prop = np.loadtxt(os.path.join(sim_dir,"data_properties.dat"),ndmin=2)
-        mat = np.loadtxt(os.path.join(sim_dir,"data_material.dat"))
-        r = np.loadtxt(os.path.join(sim_dir,"data_radii.dat"))
-        mat = mat-1
-        prop_temp=np.zeros((len(mat),3))
-        for i,p in enumerate(mat):
-            prop_temp[i,1:3] = prop[int(p), 0:2]
-            prop_temp[:,0] = r  
-        properties.append(prop_temp)                                            # Shape of data         for simulation [Nstep[R E v]]]
-
-        # Aggregate coordinates for every step
-        step = 0
-        coor_sim = []                                                           # Shape of Coordinates  for simulation [Nstep[Npar,[x y z]]]
-        data_temp = []                                                          # Shape of Coordinates  for simulation [Nstep[Npar,[x y z]]]
-        for par_dir in os.listdir(sim_dir):                                     # For every load step
-            if "Particles" in par_dir:
-                coor_step = np.loadtxt(os.path.join(sim_dir,par_dir)).reshape(-1,3)
-                coor_sim.append(coor_step)
-                data_temp.append(np.concatenate((coor_step,prop_temp),axis=1))
-                step+=1
-            
-        coor.append(coor_sim)                                                   # Add simulation data to list of simulation data arrays
-        data.append(data_temp)
-
-        # Aggregate Start positions
-        coor_start = np.loadtxt(os.path.join(sim_dir,"data_particle.dat"))                # Shape of Coordinates for simulation [Npar,[x y z]]]
-        data_start.append(np.concatenate((coor_start,prop_temp),axis=1))        # Shape of data_start for simulation [Npar,[x y z R E v]]
-
-        # Aggregate graph topology for every step
-        top_list = []                                                           
-        for par_dir in os.listdir(sim_dir):                                     # For every load step
-            if "PairContact" in par_dir:
-                top_ar = np.loadtxt(os.path.join(sim_dir,par_dir))
-                top_ar -= 1                                                     #MATLAB to Python index
-                top_list.append(top_ar[:,:2].astype(int))
-        top.append(top_list)      
+class AggregateRawData():
+    def __init__(self, dataset_name,data_dir):
+        self.folder = dataset_name
+        self.data_dir = data_dir
+        self.folder_dir = os.path.join(data_dir,dataset_name,"Results")
+        self.num_sim = len(os.listdir(self.folder_dir))
+        self.sim_dirs = [os.path.join(self.folder_dir,sim_name) for sim_name in os.listdir(self.folder_dir)]
+        self.timesteps = sum(["Particles" in dir for dir in os.listdir(self.sim_dirs[0])])
         
-        # Aggregate Boundary conditions
+    def _ParticleData(self,sim_dir):
+        prop = np.loadtxt(os.path.join(sim_dir,"data_properties.dat"),ndmin=2)
+        mat = np.loadtxt(os.path.join(sim_dir,"data_material.dat")).astype(int)
+        r = np.loadtxt(os.path.join(sim_dir,"data_radii.dat"))
+        par_dirs = [os.path.join(sim_dir,dir) for dir in os.listdir(sim_dir) if "Particles" in dir]
+        coordinates = np.array([np.loadtxt(par_dir).reshape(-1,3) for par_dir in par_dirs])
+
+        par_data_sim = np.zeros((*coordinates.shape[:2],6))
+        par_data_sim[:,:,:3] = coordinates
+        par_data_sim[:,:,3] = r
+        par_data_sim[:,:,-2:] = prop[mat-1][:,:2]  
+
+        return par_data_sim  
+    
+    def _TopologyData(self, sim_dir):
+        top_dirs = [os.path.join(sim_dir,dir) for dir in os.listdir(sim_dir) if "PairContact" in dir]
+        topology_sim = [np.loadtxt(top_dir)[:,:2]-1 for top_dir in top_dirs]
+        return topology_sim
+    
+    def _BoundaryConditions(self,sim_dir):
         if os.path.exists(os.path.join(sim_dir,"BC.csv")):
             bc_old_format = np.genfromtxt(os.path.join(sim_dir,"BC.csv"),delimiter=",")
             bc_sim= np.zeros((2,bc_old_format.shape[0],9))
@@ -76,8 +47,17 @@ def AggregateRawData(data_dir:str,folder:str):
         if os.path.exists(os.path.join(sim_dir,"BC.mat")):
             bc_sim = scipy.io.loadmat('BC.mat')['BC']
 
-        bc.append(bc_sim)  # Boundary conditions [simulation[WallID,[x y z Nx Ny Nz dx dy dz]]]
-    return data,top,bc
+    def ParticleData(self):
+        par_data = np.array([self._ParticleData(sim_dir) for sim_dir in tqdm(self.sim_dirs)])
+        return par_data
+    
+    def TopologyData(self):
+        topology = [self._TopologyData(sim_dir) for sim_dir in tqdm(self.sim_dirs)]
+        return topology
+    
+    def BoundaryConditions(self):
+        boundary_conditions = [self._BoundaryConditions(sim_dir) for sim_dir in tqdm(self.sim_dirs)]
+        return np.array(boundary_conditions)
 
 # Generate and encode virtual particles at BC intersections
 def BCEncoding(par_step,top_step,bc_step):
@@ -175,7 +155,7 @@ def GetDataDir():
     return data_dir
 
 # Save the aggregated and encoded dataset
-def save(dataset_name,data_agr,top_agr,bc):
+def save(dataset_name,data_agr=None,top_agr=None,bc=None):
     """Saves aggregated encoded data
 
     Args:
@@ -186,10 +166,12 @@ def save(dataset_name,data_agr,top_agr,bc):
         bc (Array): Aggregated boundary conditions
     """
     dir = os.path.join(os.getcwd(),"Data","raw")
-    np.save(os.path.join(dir,f"{dataset_name}_Data.npy"),np.array(data_agr, dtype=object),allow_pickle=True)
-    np.save(os.path.join(dir,f"{dataset_name}_Topology.npy"),np.array(top_agr, dtype=object),allow_pickle=True)
-    np.save(os.path.join(dir,f"{dataset_name}_BC"),np.array(bc, dtype=object),allow_pickle=True)
-    #np.save(f"{os.getcwd()}\\Data\\Raw\\{dataset_name}_Data_start",np.array(data_start, dtype=object),allow_pickle=True)
+    if data_agr is not None:
+        np.save(os.path.join(dir,f"{dataset_name}_Data.npy"),np.array(data_agr, dtype=object),allow_pickle=True)
+    if top_agr is not None:
+        np.save(os.path.join(dir,f"{dataset_name}_Topology.npy"),np.array(top_agr, dtype=object),allow_pickle=True)
+    if bc is not None:
+        np.save(os.path.join(dir,f"{dataset_name}_BC"),np.array(bc, dtype=object),allow_pickle=True)
     
     
 # Load an aggregated and encoded dataset 
