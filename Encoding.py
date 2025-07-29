@@ -75,7 +75,7 @@ def AggregateRawData(data_dir:str,folder:str):
 
         if os.path.exists(os.path.join(sim_dir,"BC.mat")):
             bc_sim = scipy.io.loadmat('BC.mat')['BC']
-            
+
         bc.append(bc_sim)  # Boundary conditions [simulation[WallID,[x y z Nx Ny Nz dx dy dz]]]
     return data,top,bc
 
@@ -209,8 +209,30 @@ def load(dataset_name: str):
     bc = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_BC.npy",allow_pickle=True)
     return data, top ,bc
 
+def ProjectPointsToCylinder(points,cyl):
+    point_to_cyl_origin = points-cyl[:3]
+    cyl_axis = cyl[3:6]
+    cyl_radius = cyl[6]
+    cyl_axis /= np.linalg.norm(cyl_axis)
+
+    axis_projection = point_to_cyl_origin*cyl_axis*cyl_axis
+    axis_projection += cyl[:3]
+    axis_projection_to_points = points-axis_projection
+    axis_projection_to_points_scaled = axis_projection_to_points/np.linalg.norm(axis_projection_to_points,axis=1,keepdims=True)*cyl_radius
+    point_on_cyl = axis_projection+axis_projection_to_points_scaled
+    return point_on_cyl
+
+def ProjectPointsToHyperplane(points,plane):
+    a = plane[:3]-points                                          # Vector A from particle P to point W on plane
+    b = plane[3:6]                                                # Vector B: normal vector wall
+    b /= np.linalg.norm(b)                                                       
+    a1 = a*b*b
+    point_on_plane = points+a1
+    
+    return point_on_plane
+
 # Create array of P-W intersections
-def WallParticleIntersection(point: np.ndarray,bc: np.ndarray,i: int,tol: float):
+def WallParticleIntersection(particles: np.ndarray,bc: np.ndarray,tol: float):
     """Check if a particle intersects with a wall
 
     Args:
@@ -221,14 +243,21 @@ def WallParticleIntersection(point: np.ndarray,bc: np.ndarray,i: int,tol: float)
 
     Returns:
         list: Wall intersections
-    """
+        """
     topology_wall = []
-    for wid in range(len(bc)):
-        a = bc[wid,:3]-point[:3]                                                # Vector A from particle P to point W on plane
-        b = bc[wid,3:6]                                                         # Vector B: normal vector wall
-        a1 = np.abs(np.sum(a*b))                                                # Vector a1(unit) : Absolute size projection A normal to wall
-        if a1 - point[3] <= tol*point[3]:
-            topology_wall.append([i+1,-(wid+1)])
+    for wall_id,wall in enumerate(bc[0]):
+        if wall[-1] == 1:
+            point_on_wall = ProjectPointsToCylinder(particles[:3],wall)
+        if wall[-1] == 0:
+            point_on_wall = ProjectPointsToHyperplane(particles[:3],wall)
+        P_W_contact = np.linalg.norm(particles[:3]-point_on_wall,axis=1)-particles[3] <= tol*particles[3]
+        P_idx = np.argwhere(P_W_contact)
+        W_idx = np.ones((P_idx.shape[0],1))*-(wall_id+1)
+        top_temp = np.concatenate([P_idx,W_idx],axis=1)
+        if wall_id == 0:
+            topology_wall = top_temp
+        else:
+            topology_wall = np.concatenate([topology_wall,top_temp])
     return topology_wall
 
 # Construct a topology from scratch
@@ -253,11 +282,8 @@ def ConstructTopology(par_data,bc,tol):
             if np.linalg.norm(Xi-Xj)-Ri-Rj <= tol*Ri:
                 topology_par.append([i+1,j+1])
         
-        topology_wall_temp = WallParticleIntersection(par_data[i],bc,i,tol)
-        topology_wall = np.append(topology_wall,topology_wall_temp)
-
     topology_par = np.array(topology_par).reshape((-1,2))
-    topology_wall = np.array(topology_wall).reshape((-1,2))
+    topology_wall = WallParticleIntersection(par_data,bc,tol)
     topology = np.concatenate([topology_par,topology_wall]).astype(int)
     return topology
 
