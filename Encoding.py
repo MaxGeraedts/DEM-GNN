@@ -6,6 +6,7 @@ import torch
 from torch_geometric.data import Data
 from tqdm import tqdm
 import torch_geometric.transforms as T
+import scipy.io
 
 # Aggregate set of simulations on the drive to a single numpy array
 def AggregateRawData(data_dir:str,folder:str):
@@ -66,7 +67,16 @@ def AggregateRawData(data_dir:str,folder:str):
         top.append(top_list)      
         
         # Aggregate Boundary conditions
-        bc.append(np.genfromtxt(os.path.join(sim_dir,"BC.csv"),delimiter=","))  # Boundary conditions [simulation[WallID,[x y z Nx Ny Nz dx dy dz]]]
+        if os.path.exists(os.path.join(sim_dir,"BC.csv")):
+            bc_old_format = np.genfromtxt(os.path.join(sim_dir,"BC.csv"),delimiter=",")
+            bc_sim= np.zeros((2,bc_old_format.shape[0],9))
+            bc_sim[0,:,:6] = bc_old_format[:,:6]
+            bc_sim[1,:,:3] = bc_old_format[:,-3:]
+
+        if os.path.exists(os.path.join(sim_dir,"BC.mat")):
+            bc_sim = scipy.io.loadmat('BC.mat')['BC']
+            
+        bc.append(bc_sim)  # Boundary conditions [simulation[WallID,[x y z Nx Ny Nz dx dy dz]]]
     return data,top,bc
 
 # Generate and encode virtual particles at BC intersections
