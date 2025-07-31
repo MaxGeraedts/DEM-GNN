@@ -9,6 +9,16 @@ import torch_geometric.transforms as T
 import scipy.io
 from typing import Literal
 
+def NumpyGroupby(group_key,group_value):
+    index_sort = group_key.argsort()
+    key_sort = group_key[index_sort]
+    value_sort = group_value[index_sort,:]
+
+    index_split = np.unique(key_sort,return_index=True)[1][1:]
+    value_grouped = np.split(value_sort,index_split)
+
+    return key_sort,value_grouped
+
 # Aggregate set of simulations on the drive to a single numpy array
 class AggregateRawData():
     def __init__(self, dataset_name,data_dir):
@@ -62,39 +72,42 @@ class AggregateRawData():
         return np.array(boundary_conditions)
 
 # Generate and encode virtual particles at BC intersections
+def GetVirtualParticlesCoords(par_step,top_step,bc_step):
+    P_wall,P_W_particles = [],[]
+    for wall_id,wall in enumerate(bc_step[0]):
+        if wall[-1] == 1:
+            ProjectionFunction = ProjectPointsToHyperplane
+        if wall[-1] == 0:
+            ProjectionFunction = ProjectPointsToHyperplane
+
+        P_W_mask = -top_step[:,1]-2==wall_id
+        P_W_idx = top_step[P_W_mask]
+        P_W_particles_temp = par_step[P_W_idx[:,0],:][:,:3]
+        P_wall.append(ProjectionFunction(P_W_particles_temp,wall))
+        P_W_particles.append(P_W_particles_temp)
+
+    P_wall = np.astype(np.concatenate(P_wall),float)
+    P_W_particles = np.astype(np.concatenate(P_W_particles),float)
+
+    rel_coord = P_W_particles-P_wall
+    normal_vectors = rel_coord/np.linalg.norm(rel_coord,axis=1,keepdims=True)
+    return P_wall, normal_vectors
+
 def BCEncoding(par_step,top_step,bc_step):
-    """Encode boundary position given particles, topology and boundary conditions in a timestep
-
-    Args:
-        par_step (ndarray): particle properties in timestep [Npar, [x y z]]
-        top_step (ndarray): Particle-Particle intersection topology of the graph
-        bc_step (_type_): Time step boundary condition [WallID,[x y z Nx Ny Nz dx dy dz]]
-
-    Returns:
-        tuple: [P_virtual, top_new]
-    """
-    top_pw = top_step[top_step[:,1]<0,:]
-    wid = (top_pw[:,1]+2)*-1                                                    # WallID converted to python index
-    pid = top_pw[:,0]                                                           # Particle ID touching wall
-
-    p = par_step[pid]                                                           # particle P which touches wall
-    a = bc_step[wid,:3]-p                                                       # Vector A from particle P to point W on plane
-    b = bc_step[wid,3:6]                                                        # Vector B: normal vector wall
-    a1_u = np.sum((a*b),axis=1)                                                 # Vector a1(unit) : Projection A normal to wall
-    a1_u = a1_u[:, np.newaxis]                                                      
-    a1 = a1_u*b                                                                 # Vector a1 : Projection A normal to wall
-    Pw = a1+p                                                                   # Point PW: projection P on Wall
-
-    P_virtual = np.concatenate((Pw,
-                               np.zeros((Pw.shape[0],3)),                       # Zeros for normal vector features
-                               b,
-                               np.zeros((Pw.shape[0],1))),                      # Ones as real particle binary classifier
-                               axis=1)
     
-    top_new = np.copy(top_step)
-    for i,topi in enumerate(top_pw):
-        top_new[-len(top_pw)+i,1] = i+len(par_step)
+    P_wall, normal_vectors = GetVirtualParticlesCoords(par_step,top_step,bc_step)
 
+    P_virtual = np.concatenate((P_wall,
+                                np.zeros((P_wall.shape[0],3)),                      
+                                np.astype(normal_vectors,int),
+                                np.zeros((P_wall.shape[0],1))),                      
+                                axis=1)
+
+    top_new = top_step.copy()
+    n_new = P_virtual.shape[0]
+    for i in range(n_new):
+        top_new[-n_new+i,1] = par_step.shape[0]+i
+    
     return P_virtual, top_new
 
 # Encode the Aggregated data
@@ -117,35 +130,6 @@ def EncodeNodes(par_t,top_t,bc_t):
     P_virtual, top_new = BCEncoding(P_real[:,:3],top_t,bc_t)              # Virtual particle coordinates & Updated topology indexing
     par_enc = np.concatenate((P_real,P_virtual),axis=0)
     return par_enc.astype(float),top_new
-
-def Encoding(data,top,bc):
-    """Encode aggregated data
-
-    Args:
-        data (ndarray, list): Aggregated particle data [sim,timestep,par,[x y z R E v]]
-        top (ndarray, list): List or array of simulation topologies [sim,timestep [i,j]]
-        bc (_type_): Boundary conditions [simulation[WallID,[x y z Nx Ny Nz dx dy dz]]]
-
-    Returns:
-        tuple: data_enc, top_enc
-    """
-    data_enc = []
-    top_enc = []
-    for i, sim in enumerate(data):
-        data_sim = []
-        top_sim = []
-        for t, step in enumerate(sim):
-            # Update BC's
-            bc_step = np.copy(bc[i])
-            bc_step[:,:3] = bc[i][:,:3]+(t+2)*bc[i][:,-3:]        
-            # Add Virtual particles to encode BC's           
-            par_enc,top_new = EncodeNodes(step,top[i][t],bc_step)
-            
-            data_sim.append(np.asarray(par_enc,dtype=float))
-            top_sim.append(np.asarray(top_new,dtype=float))
-        data_enc.append(data_sim)  
-        top_enc.append(top_sim)  
-    return data_enc, top_enc
 
 # Retrieve raw data directory on the local drive
 def GetDataDir():
@@ -218,6 +202,18 @@ def ProjectPointsToHyperplane(points,plane):
     return point_on_plane
 
 # Create array of P-W intersections
+def CheckForWallContact(particles,wall,tol):
+    if wall[-1] == 1:
+        point_on_wall = ProjectPointsToCylinder(particles[:,:3],wall)
+    if wall[-1] == 0:
+        point_on_wall = ProjectPointsToHyperplane(particles[:,:3],wall)
+
+    P_W_vector = particles[:,:3]-point_on_wall
+    P_W_distance = np.linalg.norm(np.astype(P_W_vector,float),axis=1)
+    P_W_contact_mask = P_W_distance-particles[:,3] <= tol*particles[:,3]
+
+    return P_W_contact_mask
+
 def WallParticleIntersection(particles: np.ndarray,bc: np.ndarray,tol: float):
     """Check if a particle intersects with a wall
 
@@ -232,14 +228,8 @@ def WallParticleIntersection(particles: np.ndarray,bc: np.ndarray,tol: float):
         """
     topology_wall = []
     for wall_id,wall in enumerate(bc[0]):
-        if wall[-1] == 1:
-            point_on_wall = ProjectPointsToCylinder(particles[:,:3],wall)
-        if wall[-1] == 0:
-            point_on_wall = ProjectPointsToHyperplane(particles[:,:3],wall)
-        P_W_vector = particles[:,:3]-point_on_wall
-        P_W_distance = np.linalg.norm(np.astype(P_W_vector,float),axis=1)
-        P_W_contact = P_W_distance-particles[:,3] <= tol*particles[:,3]
-        P_idx = np.argwhere(P_W_contact)
+        P_W_contact_mask = CheckForWallContact(particles,wall,tol)
+        P_idx = np.argwhere(P_W_contact_mask)
         W_idx = np.ones((P_idx.shape[0],1))*-(wall_id+1)
         top_temp = np.concatenate([P_idx,W_idx],axis=1)
         if wall_id == 0:
@@ -268,7 +258,7 @@ def ConstructTopology(par_data,bc,tol):
             Xj = par_data[j,:3]
             Rj = par_data[j,3]
             if np.linalg.norm(Xi-Xj)-Ri-Rj <= tol*Ri:
-                topology_par.append([i+1,j+1])
+                topology_par.append([i,j])
         
     #topology_par = np.array(topology_par).reshape((-1,2))
     topology_wall = WallParticleIntersection(par_data,bc,tol)
@@ -320,37 +310,40 @@ def TopologySlice(super_topology_subset,par_data,idx):
     radius = par_data[par_idx,3]
     return par_idx,pos,radius
 
-def TopologyFromPlausibleTopology(super_topology,par_data,BC_t,tol):
+def GetPW_top(par_data,top_PW,bc_t,tol):
+    wall_idx = -top_PW[0,1].item()-1
+    wall = bc_t[0,wall_idx,:]
+    wall_particles = par_data[top_PW[:,0],:]
+    mask_PW = CheckForWallContact(wall_particles,wall,tol)
+    return top_PW[mask_PW]
+
+def TopologyFromPlausibleTopology(super_top,par_data,bc_t,tol=0):
     """From a large topology of PLAUSIBLE contacts, particle info and boundary conditions, return a topology corresponding to actual contact at the corresponding timestep
 
-    Args:
-        super_topology (array): array of indices corresponding to contact plausible to occur in the entire simulation
-        par_data (array): array of particle data, including particle position and raddii 
-        bc (array): Array of Boundary planes representing boundary conditions at a timestep
+Args:
+    super_topology (array): array of indices corresponding to contact plausible to occur in the entire simulation
+    par_data (array): array of particle data, including particle position and raddii 
+    bc (array): Array of Boundary planes representing boundary conditions at a timestep
 
-    Returns:
-        array: Lists actual physical contacts
+Returns:
+    array: Lists actual physical contacts
     """
     R_avg = par_data[:,3].mean()
-    PP_mask = super_topology[:,1]>0
-    super_topology_PP = super_topology[PP_mask]
-    super_topology_PW = super_topology[~PP_mask]
+    PP_mask = super_top[:,1]>0
+    super_top_PP = super_top[PP_mask]
+    super_top_PW = super_top[~PP_mask]
 
-    [idx_i,pos_i,radius_i] = TopologySlice(super_topology_PP,par_data,0)
-    [idx_j,pos_j,radius_j] = TopologySlice(super_topology_PP,par_data,1)
-    mask_PP = np.linalg.norm(np.ndarray.astype(pos_i-pos_j,float),axis=1)-(radius_i+radius_j) <= tol*R_avg
-    topology_PP = super_topology_PP[mask_PP]
+    [idx_i,pos_i,radius_i] = TopologySlice(super_top_PP,par_data,0)
+    [idx_j,pos_j,radius_j] = TopologySlice(super_top_PP,par_data,1)
 
-    [idx_i,pos_i,radius_i] = TopologySlice(super_topology_PW,par_data,0)
-    idx_w = -super_topology_PW[:,1]-2
-    PW_vector = BC_t[idx_w,:3]-pos_i
-    wall_normal_vector = BC_t[idx_w,3:6]
-    wall_projection = (PW_vector*wall_normal_vector)*wall_normal_vector
-    dist_wall = np.linalg.norm(wall_projection.astype(float),axis=1)
-    mask_PW = dist_wall-radius_i <= tol*R_avg
-    topology_PW = super_topology_PW[mask_PW]
+    distance_PP = np.linalg.norm(np.ndarray.astype(pos_i-pos_j,float),axis=1)
+    mask_PP = distance_PP-(radius_i+radius_j) <= tol*R_avg
+    top_PP = super_top_PP[mask_PP]
 
-    topology = np.concatenate((topology_PP,topology_PW))
+    super_top_PW_groups = NumpyGroupby(super_top_PW[:,1],super_top_PW)[1]
+    top_PW = np.concatenate([GetPW_top(par_data,top,bc_t,tol) for top in super_top_PW_groups])
+
+    topology = np.concatenate((top_PP,top_PW))
     return topology
 
 # From list of particles and boundaries, generate model input data

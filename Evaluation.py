@@ -4,6 +4,7 @@ from tqdm import tqdm, trange
 import numpy as np
 from typing import Literal
 from ML_functions import LearnedSimulator, NormalizeData, GetModel, Rescale, NormalizePos, MaskTestData
+from Encoding import NumpyGroupby
 
 def GetAllContactpoints(data:object):
     real_edge = data.edge_index[:,data.edge_mask]
@@ -191,15 +192,7 @@ def GetWallStress(datalist,BC_rollout):
     S_wall = F_wall/A_wall
     return S_wall
 
-def NumpyGroupby(group_key,group_value):
-    index_sort = group_key.argsort()
-    key_sort = group_key[index_sort]
-    value_sort = group_value[index_sort,:]
 
-    index_split = np.unique(key_sort,return_index=True)[1][1:]
-    value_grouped = np.split(value_sort,index_split)
-
-    return key_sort,value_grouped
 
 def NormalizedResultantForce(data):
     force = GetContactForce(data).numpy()
