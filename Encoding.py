@@ -73,40 +73,43 @@ class AggregateRawData():
 
 # Generate and encode virtual particles at BC intersections
 def GetVirtualParticlesCoords(par_step,top_step,bc_step):
-    P_wall,P_W_particles = [],[]
+    P_wall,P_W_particles, P_W_top = [],[],[]
     for wall_id,wall in enumerate(bc_step[0]):
         if wall[-1] == 1:
             ProjectionFunction = ProjectPointsToHyperplane
         if wall[-1] == 0:
             ProjectionFunction = ProjectPointsToHyperplane
 
-        P_W_mask = -top_step[:,1]-2==wall_id
+        P_W_mask = -top_step[:,1]-1==wall_id
         P_W_idx = top_step[P_W_mask]
         P_W_particles_temp = par_step[P_W_idx[:,0],:][:,:3]
         P_wall.append(ProjectionFunction(P_W_particles_temp,wall))
         P_W_particles.append(P_W_particles_temp)
+        P_W_top.append(P_W_idx)
 
     P_wall = np.astype(np.concatenate(P_wall),float)
     P_W_particles = np.astype(np.concatenate(P_W_particles),float)
+    P_W_top = np.astype(np.concatenate(P_W_top),int)
 
     rel_coord = P_W_particles-P_wall
     normal_vectors = rel_coord/np.linalg.norm(rel_coord,axis=1,keepdims=True)
-    return P_wall, normal_vectors
+    return P_wall, normal_vectors, P_W_top
 
 def BCEncoding(par_step,top_step,bc_step):
     
-    P_wall, normal_vectors = GetVirtualParticlesCoords(par_step,top_step,bc_step)
+    P_wall, normal_vectors,P_W_top = GetVirtualParticlesCoords(par_step,top_step,bc_step)
 
     P_virtual = np.concatenate((P_wall,
                                 np.zeros((P_wall.shape[0],3)),                      
-                                np.astype(normal_vectors,int),
+                                normal_vectors,
                                 np.zeros((P_wall.shape[0],1))),                      
                                 axis=1)
 
-    top_new = top_step.copy()
+    P_P_top = top_step[top_step[:,1]>=0]
+    top_new = np.concatenate([P_P_top,P_W_top],axis=0)
     n_new = P_virtual.shape[0]
-    for i in range(n_new):
-        top_new[-n_new+i,1] = par_step.shape[0]+i
+    n_par = par_step.shape[0]
+    top_new[-n_new:,1] = np.arange(n_par,n_new+n_par,1)
     
     return P_virtual, top_new
 
@@ -123,7 +126,7 @@ def EncodeNodes(par_t,top_t,bc_t):
         tuple: EncodedParticles, UpdatedTopology
     """
     # Pad real particles with zeros and add binary classifier
-    P_real = np.concatenate((par_t,
+    P_real = np.concatenate((par_t.copy(),
                              np.zeros((par_t.shape[0],3)),               # Zeros for normal vector features
                              np.ones((par_t.shape[0],1))),               # Ones as real particle binary classifier
                              axis=1)
@@ -375,7 +378,7 @@ def ToPytorchData(par_data,bc,tol:float=0.0,topology:bool=None, label_data:bool=
     """
     with torch.no_grad():
         if topology is None:
-            topology = ConstructTopology(par_data,bc,tol)-1
+            topology = ConstructTopology(par_data,bc,tol)
 
         EncodedParticles, EncodedTopology = EncodeNodes(par_data,topology,bc)
 
@@ -393,7 +396,7 @@ def ToPytorchData(par_data,bc,tol:float=0.0,topology:bool=None, label_data:bool=
             center = T.Center()
             data = center(data)
 
-    return data, topology
+    return data, topology, EncodedTopology
 
 def GetLength(listorarray):
     if type(listorarray) == list:

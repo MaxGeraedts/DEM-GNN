@@ -101,15 +101,10 @@ def PlotAxes(bc_rollout,real_rollout,ML_rollout,dim,ax,normalize):
     if normalize == False:
         r = 1
 
-    real = []
-    for particles in real_rollout:
-        real.append([particles[0,dim],particles[1,dim]])
-
-    real = np.array(real)
     coorstr = ['X','Y','Z']
 
-    ax.plot(bc_rollout[:,dim,dim]/r,'black')
-    ax.plot(bc_rollout[:,dim+3,dim]/r,'black',label='Wall')
+    ax.plot(bc_rollout[:,0,dim,dim]/r,'black')
+    ax.plot(bc_rollout[:,0,dim+3,dim]/r,'black',label='Wall')
     ax.plot(real_rollout[:,0,dim]/r, 'red', label='DEM Prediction')
     ax.plot(real_rollout[:,1,dim]/r, 'blue', label='DEM Prediction')
     ax.plot(ML_rollout[:,0,dim]/r, 'red', linestyle='dashed', label='ML Prediction')
@@ -123,10 +118,10 @@ def PlotXYZ(Rollout: object,t_max: int,normalize: bool):
     fig, axes = plt.subplots(1,3,sharey=True)
     fig.set_figwidth(19)
     ML_data_array = np.array([np.concatenate((data.pos[data.mask],data.x[data.mask]),axis=1) for data in Rollout.ML_rollout])
-    DEM_data_array = np.array([np.concatenate((data.pos[data.mask],data.x[data.mask]),axis=1) for data in Rollout.ML_rollout])
+    DEM_data_array = np.array([np.concatenate((data.pos[data.mask],data.x[data.mask]),axis=1) for data in Rollout.GroundTruth])
     for i, ax in enumerate(axes):   
         PlotAxes(Rollout.BC_rollout,
-                DEM_data_array[:min(100,t_max)],
+                DEM_data_array,
                 ML_data_array[:t_max],
                 i,ax, normalize)
         ax.set_xlim(xmin=0,xmax=t_max)

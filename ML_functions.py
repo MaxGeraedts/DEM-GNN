@@ -25,7 +25,7 @@ def MaskTestData(dataset_name:str,dataset_type: Literal["train","validate","test
         tuple: [data, topology, boundary_conditions]
     """
     type_dic= {"train": 0, "validate":1, "test":2}
-    loaded_data = load(dataset_name)
+    loaded_data = [load(dataset_name,dataset_type) for dataset_type in ["par_data","top","bc"]]
     mask = DataMask(loaded_data[0],)[type_dic[dataset_type]]
     test_data = [data[mask] for data in loaded_data]
     return test_data
@@ -43,10 +43,10 @@ class LearnedSimulator:
 
     def BCrollout(self,show_tqdm:bool)->list[npt.NDArray]:
         if show_tqdm: print("Calculating BC")
-        BC_rollout = np.empty((self.timesteps,self.BC.shape[0],self.BC.shape[1]))
+        BC_rollout = np.empty((self.timesteps,*self.BC.shape))
         BC_t=np.copy(self.BC)
         for t in trange(self.timesteps,disable = not show_tqdm):
-            BC_t[:,:3] = self.BC[:,:3]+(t+1)*self.BC[:,-3:] 
+            BC_t[0] = self.BC[0]+(t+1)*self.BC[1] 
             BC_rollout[t] = BC_t
         return BC_rollout
     
@@ -80,7 +80,7 @@ class LearnedSimulator:
                 data.MatlabTopology = MatlabTopology
                 ML_Rollout.append(data)
 
-            BC[:,:3] += BC[:,-3:]
+            BC[0] += BC[1]
 
         return par_inp, BC, MatlabTopology
     
@@ -90,17 +90,17 @@ class LearnedSimulator:
             # Initiate Rollout
             ML_Rollout = []
             par_inp = self.par_data[0]
-            BC = self.BC
-            BC[:,:3] += BC[:,-3:]
-            MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
-            data = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
+            BC_t = self.BC.copy()
+            BC_t[0] += BC_t[1]
+            MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC_t,self.tol)
+            data = ToPytorchData(par_inp,BC_t,self.tol,MatlabTopology)[0]
             data.MatlabTopology = MatlabTopology
             ML_Rollout.append(data)
 
             # Rollout
-            BC[:,:3] += BC[:,-3:]
+            BC_t[0] += BC_t[1]
             for t in tqdm(range(1,self.timesteps,self.bundle_size),initial=1,disable = not show_tqdm):
-                par_inp, BC, MatlabTopology = self.Rollout_Step(par_inp, BC, MatlabTopology,ML_Rollout)
+                par_inp, BC_t, MatlabTopology = self.Rollout_Step(par_inp, BC_t, MatlabTopology,ML_Rollout)
 
         return ML_Rollout
 
@@ -109,7 +109,7 @@ class LearnedSimulator:
         self.par_data = data_agr[i].copy()
         self.topology = top_agr[i].copy()
         self.BC_rollout = self.BCrollout(show_tqdm)
-        self.super_topology = ConstructTopology(self.par_data[0],self.BC_rollout[0],self.super_tol)-1
+        self.super_topology = ConstructTopology(self.par_data[0],self.BC_rollout[0],self.super_tol)
         self.GroundTruth = self.GroundTruth_Rollout(show_tqdm)
         self.ML_rollout = self.MLRollout(show_tqdm)
 
@@ -229,7 +229,7 @@ class DEM_Dataset(InMemoryDataset):
         self.scale_name = f"{self.dataset_name}_bund{self.bundle_size}"
 
         super().__init__(root, transform, pre_transform,pre_filter,force_reload=force_reload)
-        self.load(os.path.join(self.processed_data_path,self.processed_file_names[0]))
+        self.load(self.processed_file_names[0])
 
     @property 
     def raw_file_names(self):
@@ -243,7 +243,7 @@ class DEM_Dataset(InMemoryDataset):
             processed_file_name = f"{self.dataset_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.Dataset_type}.pt"
         else:
             processed_file_name = f"{self.dataset_name}_bund{self.bundle_size}__push{self.forward_step_max}_{self.model_ident}_{self.Dataset_type}.pt"
-        return [processed_file_name]
+        return [os.path.join(self.processed_data_path,processed_file_name)]
     
     def download(self):
         pass
@@ -269,37 +269,37 @@ class DEM_Dataset(InMemoryDataset):
 
         if self.forward_step_max > 0:
             Simulation = LearnedSimulator(self.model,
-                                          scale_function=Rescale(self.scale_name),
-                                          transform = T.Compose([self.pre_transform,NormalizeData(self.scale_name)]))
+                                          scale_function=Rescale(self.dataset_name,self.scale_name),
+                                          transform = T.Compose([self.pre_transform,NormalizeData(self.dataset_name,self.scale_name)]))
             self.Rollout_step = Simulation.Rollout_Step
 
         print(f"Collecting {self.Dataset_type} data")
         for sim, top, bc in tqdm(zip(data_agr,top_agr,bc),total=bc.shape[0]):
             R_avg = sim[0][:,3].mean()
-            self.super_topology = ConstructTopology(sim[0],bc,self.super_tol)-1
+            self.super_topology = ConstructTopology(sim[0],bc,self.super_tol)
             if self.forward_step_max > 0: Simulation.super_topology = self.super_topology
             for t in range(len(sim)-1*self.bundle_size*(self.forward_step_max+1)):
                 par_inp = sim[t].copy()
-                BC = bc.copy()
-                BC[:,:3] = bc[:,:3]+(t+1)*bc[:,-3:]
+                bc_t = bc.copy()
+                bc_t[0] = bc[0]+(t+1)*bc[1]
 
                 push_forward_steps = np.random.randint(0,self.forward_step_max+1)
-                MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
+                MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,bc_t,self.tol)
                 with torch.inference_mode():
                     for forward_step in range(push_forward_steps):
-                        par_inp, BC, MatlabTopology = self.Rollout_step(par_inp, BC, MatlabTopology)
+                        par_inp, bc_t, MatlabTopology = self.Rollout_step(par_inp, bc_t, MatlabTopology)
 
                 if self.noise_factor > 0:
                     standard_deviation = self.noise_factor*R_avg
                     noise = np.array(standard_deviation*torch.randn((par_inp.shape[0],3)))
                     par_inp[:,:3]+=noise
 
-                BC[:,:3] += BC[:,-3:]
+                bc_t[0] += bc_t[1]
                 pos_slice        = self.SliceAndReshapeData(sim,t  ,push_forward_steps)
                 pos_target_slice = self.SliceAndReshapeData(sim,t+1,push_forward_steps)
                 displacements = pos_target_slice-pos_slice
 
-                data = ToPytorchData(par_inp,BC,0,MatlabTopology,label_data=displacements)[0]
+                data = ToPytorchData(par_inp,bc_t,0,MatlabTopology,label_data=displacements)[0]
                 data.push_forward_steps = push_forward_steps
                 data_list.append(data)
 
@@ -310,10 +310,10 @@ class DEM_Dataset(InMemoryDataset):
         print(f"Normalizing {self.Dataset_type} data")    
         if self.Dataset_type == "train" and self.forward_step_max == 0:
             GetScales(Batch.from_data_list(data_list),self.dataset_name,self.scale_name)
-        self.normalize = NormalizeData(self.scale_name)
+        self.normalize = NormalizeData(self.dataset_name,self.scale_name)
         data_list = [self.normalize(data) for data in tqdm(data_list)]
                 
-        self.save(data_list, os.path.join(self.processed_data_path,self.processed_file_names[0]))
+        self.save(data_list, self.processed_file_names[0])
 
 # Model
 class RelPosConv(MessagePassing):

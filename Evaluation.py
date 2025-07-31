@@ -87,7 +87,7 @@ def GetContactForce(data):
     Fij = Fij_size*contactnormal
     return Fij.T
 
-def GetVolumeAndExtremeDims(BC):
+def GetVolumeAndExtremeDims(BC_t):
     """Given a boundary condition array at time t, calculate volume
 
     Args:
@@ -96,6 +96,7 @@ def GetVolumeAndExtremeDims(BC):
     Returns:
         float: Boundary volume
     """
+    BC = BC_t[0]
     xmax, xmin = BC.item(0,0), BC.item(3,0)
     ymax, ymin = BC.item(1,1), BC.item(4,1)
     zmax, zmin = BC.item(2,2), BC.item(5,2)
