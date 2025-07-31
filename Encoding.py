@@ -7,6 +7,7 @@ from torch_geometric.data import Data
 from tqdm import tqdm
 import torch_geometric.transforms as T
 import scipy.io
+from typing import Literal
 
 # Aggregate set of simulations on the drive to a single numpy array
 class AggregateRawData():
@@ -46,7 +47,8 @@ class AggregateRawData():
 
         if os.path.exists(os.path.join(sim_dir,"BC.mat")):
             bc_sim = scipy.io.loadmat('BC.mat')['BC']
-
+        return bc_sim
+    
     def ParticleData(self):
         par_data = np.array([self._ParticleData(sim_dir) for sim_dir in tqdm(self.sim_dirs)])
         return par_data
@@ -175,7 +177,7 @@ def save(dataset_name,data_agr=None,top_agr=None,bc=None):
     
     
 # Load an aggregated and encoded dataset 
-def load(dataset_name: str):
+def load(dataset_name: str,data_type: Literal["par_data","top","bc"]):
     """
     Loads aggregated data from disk
     
@@ -185,11 +187,13 @@ def load(dataset_name: str):
     Returns:
         Tuple: [data, top , bc]
     """
-    data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data.npy",allow_pickle=True)
-    top = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Topology.npy",allow_pickle=True)
-    #data_start = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data_start.npy",allow_pickle=True).astype(float)
-    bc = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_BC.npy",allow_pickle=True)
-    return data, top ,bc
+    if data_type == "par_data":
+        loaded_data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Data.npy",allow_pickle=True)
+    if data_type == "top":
+        loaded_data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_Topology.npy",allow_pickle=True)
+    if data_type == "bc":
+        loaded_data = np.load(f"{os.getcwd()}\\Data\\raw\\{dataset_name}_BC.npy",allow_pickle=True)
+    return loaded_data
 
 def ProjectPointsToCylinder(points,cyl):
     point_to_cyl_origin = points-cyl[:3]
@@ -229,10 +233,12 @@ def WallParticleIntersection(particles: np.ndarray,bc: np.ndarray,tol: float):
     topology_wall = []
     for wall_id,wall in enumerate(bc[0]):
         if wall[-1] == 1:
-            point_on_wall = ProjectPointsToCylinder(particles[:3],wall)
+            point_on_wall = ProjectPointsToCylinder(particles[:,:3],wall)
         if wall[-1] == 0:
-            point_on_wall = ProjectPointsToHyperplane(particles[:3],wall)
-        P_W_contact = np.linalg.norm(particles[:3]-point_on_wall,axis=1)-particles[3] <= tol*particles[3]
+            point_on_wall = ProjectPointsToHyperplane(particles[:,:3],wall)
+        P_W_vector = particles[:,:3]-point_on_wall
+        P_W_distance = np.linalg.norm(np.astype(P_W_vector,float),axis=1)
+        P_W_contact = P_W_distance-particles[:,3] <= tol*particles[:,3]
         P_idx = np.argwhere(P_W_contact)
         W_idx = np.ones((P_idx.shape[0],1))*-(wall_id+1)
         top_temp = np.concatenate([P_idx,W_idx],axis=1)
@@ -264,7 +270,7 @@ def ConstructTopology(par_data,bc,tol):
             if np.linalg.norm(Xi-Xj)-Ri-Rj <= tol*Ri:
                 topology_par.append([i+1,j+1])
         
-    topology_par = np.array(topology_par).reshape((-1,2))
+    #topology_par = np.array(topology_par).reshape((-1,2))
     topology_wall = WallParticleIntersection(par_data,bc,tol)
     topology = np.concatenate([topology_par,topology_wall]).astype(int)
     return topology
