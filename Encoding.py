@@ -56,7 +56,7 @@ class AggregateRawData():
             bc_sim[1,:,:3] = bc_old_format[:,-3:]
 
         if os.path.exists(os.path.join(sim_dir,"BC.mat")):
-            bc_sim = scipy.io.loadmat('BC.mat')['BC']
+            bc_sim = scipy.io.loadmat(os.path.join(sim_dir,"BC.mat"))['BC']
         return bc_sim
     
     def ParticleData(self):

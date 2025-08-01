@@ -1,7 +1,7 @@
 from Encoding import AggregateRawData, save
 import os
 
-dataset_name = r"2Sphere"
+dataset_name = r"Pill_Mono"
 
 data_dir = r"D:\TUE\Master\Graduation\Data"
 if os.path.exists(data_dir) != True:
