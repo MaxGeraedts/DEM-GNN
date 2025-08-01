@@ -191,7 +191,7 @@ def ProjectPointsToCylinder(points,cyl):
     axis_projection = point_to_cyl_origin*cyl_axis*cyl_axis
     axis_projection += cyl[:3]
     axis_projection_to_points = points-axis_projection
-    axis_projection_to_points_scaled = axis_projection_to_points/np.linalg.norm(axis_projection_to_points,axis=1,keepdims=True)*cyl_radius
+    axis_projection_to_points_scaled = axis_projection_to_points/np.linalg.norm(axis_projection_to_points.astype(float),axis=1,keepdims=True)*cyl_radius
     point_on_cyl = axis_projection+axis_projection_to_points_scaled
     return point_on_cyl
 

@@ -8,10 +8,14 @@ print(torch.cuda.is_available())
 force_reload    = True
 train           = True
 dataset_name    = "N400_Mono"
-model_ident     = "Test16"
+model_ident     = "msg1"
 bundle_size     = 3 
 forward_steps   = 5
-
+msg_num         = 3
+emb_dim         = 64
+learning_rate   = 0.000005
+batch_size      = 16
+epochs          = 500
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 
@@ -19,6 +23,7 @@ try:
     os.mkdir(os.path.join(os.getcwd(),"Data","processed",dataset_name))
 except OSError as e:
     print("Error:", e)
+
 
 [dataset_train, dataset_val, dataset_test]      = [DEM_Dataset(dataset_name,
                                                                dataset_type,
@@ -44,13 +49,7 @@ if train == True:
     
     if msg == "No Trained model":
         print(f"Training {model_name}")
-        trainer = Trainer(model, dataset_train,dataset_val,
-                        batch_size=16,
-                        lr=0.0000001,
-                        epochs=500,
-                        dataset_name=dataset_name,
-                        model_ident=model_ident)
-        
+        trainer = Trainer(model, dataset_train,dataset_val,batch_size,learning_rate,epochs,dataset_name,model_ident)
         trainer.train_loop()
         SaveTrainingInfo(dataset_train,trainer)
 
@@ -67,11 +66,6 @@ if train == True and msg == 'Loaded model':
                                         model_ident = model_ident) 
                                         for dataset_type in ["train"]]
     print(f"Training {model_name}_Push")
-    trainer = Trainer(model, dataset_train,dataset_val,
-                      batch_size=16,
-                      lr=0.0000001,
-                      epochs=500,
-                      dataset_name=dataset_name,
-                      model_ident=f"{model_ident}_Push")    
+    trainer = Trainer(model, dataset_train,dataset_val,batch_size,learning_rate,epochs,dataset_name,model_ident=f"{model_ident}_Push")    
     trainer.train_loop()
     SaveTrainingInfo(dataset_train,trainer)

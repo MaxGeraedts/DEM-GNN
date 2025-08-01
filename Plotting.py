@@ -282,8 +282,8 @@ def PlotStressComparison(Rollout:Type[LearnedSimulator],plot_ml:bool=True):
 
 def PlotTrainingLoss(dataset_name,model_ident):
     model_name = f"{dataset_name}_{model_ident}"
-    training_loss = np.load(os.path.join(os.getcwd(),"Models",f"{model_name}_Training_Loss.npy"))
-    validation_loss = np.load(os.path.join(os.getcwd(),"Models",f"{model_name}_Validation_Loss.npy"))
+    training_loss = np.load(os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}_Training_Loss.npy"))
+    validation_loss = np.load(os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}_Validation_Loss.npy"))
     plt.rcParams["font.family"] = "Times New Roman"
     fig, axs = plt.subplots(1,2,figsize=(12,5))
 
