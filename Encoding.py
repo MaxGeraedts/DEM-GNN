@@ -87,9 +87,9 @@ def GetVirtualParticlesCoords(par_step,top_step,bc_step):
         P_W_particles.append(P_W_particles_temp)
         P_W_top.append(P_W_idx)
 
-    P_wall = np.astype(np.concatenate(P_wall),float)
-    P_W_particles = np.astype(np.concatenate(P_W_particles),float)
-    P_W_top = np.astype(np.concatenate(P_W_top),int)
+    P_wall = np.ndarray.astype(np.concatenate(P_wall),float)
+    P_W_particles = np.ndarray.astype(np.concatenate(P_W_particles),float)
+    P_W_top = np.ndarray.astype(np.concatenate(P_W_top),int)
 
     rel_coord = P_W_particles-P_wall
     normal_vectors = rel_coord/np.linalg.norm(rel_coord,axis=1,keepdims=True)

@@ -199,7 +199,7 @@ def NormalizedResultantForce(data):
 
     key_sort,force_grouped = NumpyGroupby(group_key=contact[:,1],group_value=force)
 
-    unique_keys = np.astype(np.unique(key_sort),int)
+    unique_keys = np.ndarray.astype(np.unique(key_sort),int)
     num_particles = data.mask.sum().item()
     force_grouped_indexed = [np.zeros((1,3))]*num_particles
     for i,index in enumerate(unique_keys):
