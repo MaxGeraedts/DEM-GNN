@@ -9,11 +9,11 @@ print(torch.cuda.is_available())
 force_reload    = True
 train           = True
 dataset_name    = "N400_Mono"
-model_ident     = "msg1"
+model_ident     = "Emb16"
 bundle_size     = 1 
 forward_steps   = 0
 msg_num         = 3
-emb_dim         = 64
+emb_dim         = 16
 learning_rate   = 0.000005
 batch_size      = 16
 epochs          = 500

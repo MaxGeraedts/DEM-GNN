@@ -212,7 +212,7 @@ def CheckForWallContact(particles,wall,tol):
         point_on_wall = ProjectPointsToHyperplane(particles[:,:3],wall)
 
     P_W_vector = particles[:,:3]-point_on_wall
-    P_W_distance = np.linalg.norm(np.astype(P_W_vector,float),axis=1)
+    P_W_distance = np.linalg.norm(np.ndarray.astype(P_W_vector,float),axis=1)
     P_W_contact_mask = P_W_distance-particles[:,3] <= tol*particles[:,3]
 
     return P_W_contact_mask

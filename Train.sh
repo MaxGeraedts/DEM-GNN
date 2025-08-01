@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=ML-Training
-#SBATCH --output=./Jobs/Training-%j.log
+#SBATCH --job-name=Emb16-ML-Training
+#SBATCH --output=./Jobs/Emb16-Training-%j.log
 #SBATCH --partition=be.gpuresearch.q,tue.gpu.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
