@@ -193,8 +193,6 @@ def GetWallStress(datalist,BC_rollout):
     S_wall = F_wall/A_wall
     return S_wall
 
-
-
 def NormalizedResultantForce(data):
     force = GetContactForce(data).numpy()
     contact = data.edge_index.T.numpy()
@@ -203,16 +201,16 @@ def NormalizedResultantForce(data):
 
     unique_keys = np.astype(np.unique(key_sort),int)
     num_particles = data.mask.sum().item()
-    force_grouped_indexed = [np.empty((6,3))]*num_particles
+    force_grouped_indexed = [np.zeros((1,3))]*num_particles
     for i,index in enumerate(unique_keys):
         force_grouped_indexed[index] = force_grouped[i]
-    force_grouped_indexed
 
     Fres_vectors = np.array([np.sum(group,axis=0) for group in force_grouped_indexed])
     Fres_norm = np.linalg.norm(Fres_vectors,axis=1)
 
     F_vectors_norm = [np.linalg.norm(group,axis=1,keepdims=True) for group in force_grouped_indexed]
-    F_vectors_norm_sum = [np.sum(group).item() for group in F_vectors_norm]
+    F_vectors_norm_sum = np.array([np.sum(group).item() for group in F_vectors_norm])
+    F_vectors_norm_sum[F_vectors_norm_sum==0] = 1
 
     Fres_size_normalized  = Fres_norm/F_vectors_norm_sum
     return Fres_size_normalized
@@ -309,7 +307,6 @@ def CompareModels(dataset_name:str, model_idents:list[str], Evaluation_function)
 
     for i, model_ident in enumerate(model_idents):
         datalist_ML, datalist_GT = AggregatedRollouts(dataset_name,f"{model_ident}_Push",AggregatedArgs)
-        print(i)
         if i == 0:
             metrics = Evaluation_function(datalist_ML, datalist_GT)
         else:
