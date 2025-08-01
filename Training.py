@@ -2,6 +2,7 @@ import torch.cuda
 import torch_geometric.transforms as T
 from ML_functions import DEM_Dataset, Trainer, GetModel, SaveModelInfo, SaveTrainingInfo
 import os
+import numpy as np
 
 print(torch.cuda.is_available())
 
@@ -9,8 +10,8 @@ force_reload    = True
 train           = True
 dataset_name    = "N400_Mono"
 model_ident     = "msg1"
-bundle_size     = 3 
-forward_steps   = 5
+bundle_size     = 1 
+forward_steps   = 0
 msg_num         = 3
 emb_dim         = 64
 learning_rate   = 0.000005

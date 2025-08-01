@@ -250,7 +250,7 @@ class DEM_Dataset(InMemoryDataset):
     
     # Load data and split them according to dataset split
     def LoadSimTop(self,i):
-        data = np.load(os.path.join(self.raw_data_path,self.raw_file_names[i]),allow_pickle=False)
+        data = np.load(os.path.join(self.raw_data_path,self.raw_file_names[i]),allow_pickle=True)
         type_idx = {"train":0,"validate":1,"test":2}[self.Dataset_type]
         mask =  DataMask(data)[type_idx]
         return data[mask]
@@ -262,7 +262,7 @@ class DEM_Dataset(InMemoryDataset):
     
     def process(self):
         data_list = []
-        data_agr,top_agr,bc= [self.LoadSimTop(i) for i in [0,1,2]]
+        data_agr,bc= [self.LoadSimTop(i) for i in [0,2]]
             
         if self.pre_filter is not None:
             simulations = self.pre_filter(simulations)
@@ -274,7 +274,7 @@ class DEM_Dataset(InMemoryDataset):
             self.Rollout_step = Simulation.Rollout_Step
 
         print(f"Collecting {self.Dataset_type} data")
-        for sim, top, bc in tqdm(zip(data_agr,top_agr,bc),total=bc.shape[0]):
+        for sim, bc in tqdm(zip(data_agr,bc),total=bc.shape[0]):
             R_avg = sim[0][:,3].mean()
             self.super_topology = ConstructTopology(sim[0],bc,self.super_tol)
             if self.forward_step_max > 0: Simulation.super_topology = self.super_topology

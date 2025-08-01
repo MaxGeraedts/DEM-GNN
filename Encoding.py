@@ -156,11 +156,11 @@ def save(dataset_name,data_agr=None,top_agr=None,bc=None):
     """
     dir = os.path.join(os.getcwd(),"Data","raw")
     if data_agr is not None:
-        np.save(os.path.join(dir,f"{dataset_name}_Data.npy"),np.array(data_agr, dtype=object),allow_pickle=True)
+        np.save(os.path.join(dir,f"{dataset_name}_Data.npy"),data_agr,allow_pickle=True)
     if top_agr is not None:
-        np.save(os.path.join(dir,f"{dataset_name}_Topology.npy"),np.array(top_agr, dtype=object),allow_pickle=True)
+        np.save(os.path.join(dir,f"{dataset_name}_Topology.npy"),top_agr,allow_pickle=True)
     if bc is not None:
-        np.save(os.path.join(dir,f"{dataset_name}_BC"),np.array(bc, dtype=object),allow_pickle=True)
+        np.save(os.path.join(dir,f"{dataset_name}_BC"),bc,allow_pickle=True)
     
     
 # Load an aggregated and encoded dataset 
