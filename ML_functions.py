@@ -250,7 +250,7 @@ class DEM_Dataset(InMemoryDataset):
     
     # Load data and split them according to dataset split
     def LoadSimTop(self,i):
-        data = np.load(os.path.join(self.raw_data_path,self.raw_file_names[i]),allow_pickle=True)
+        data = np.load(os.path.join(self.raw_data_path,self.raw_file_names[i]),allow_pickle=False)
         type_idx = {"train":0,"validate":1,"test":2}[self.Dataset_type]
         mask =  DataMask(data)[type_idx]
         return data[mask]
