@@ -76,7 +76,7 @@ def GetVirtualParticlesCoords(par_step,top_step,bc_step):
     P_wall,P_W_particles, P_W_top = [],[],[]
     for wall_id,wall in enumerate(bc_step[0]):
         if wall[-1] == 1:
-            ProjectionFunction = ProjectPointsToHyperplane
+            ProjectionFunction = ProjectPointsToCylinder
         if wall[-1] == 0:
             ProjectionFunction = ProjectPointsToHyperplane
 

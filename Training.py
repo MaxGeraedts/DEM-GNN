@@ -8,12 +8,12 @@ print(torch.cuda.is_available())
 
 force_reload    = True
 train           = True
-dataset_name    = "N400_Mono"
-model_ident     = "Emb16"
+dataset_name    = "Pill_Mono"
+model_ident     = "Initial"
 bundle_size     = 1 
 forward_steps   = 0
-msg_num         = 3
-emb_dim         = 16
+msg_num         = 4
+emb_dim         = 64
 learning_rate   = 0.000005
 batch_size      = 16
 epochs          = 500
@@ -57,6 +57,7 @@ if train == True:
     model, msg = GetModel(dataset_name,model_ident)
     
 if train == True and msg == 'Loaded model':
+    if forward_steps == 0: force_reload = False
     [dataset_train]      = [DEM_Dataset(dataset_name,
                                         dataset_type,
                                         force_reload            = force_reload,
