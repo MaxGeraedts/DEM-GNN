@@ -25,7 +25,7 @@ def MaskTestData(dataset_name:str,dataset_type: Literal["train","validate","test
         tuple: [data, topology, boundary_conditions]
     """
     type_dic= {"train": 0, "validate":1, "test":2}
-    loaded_data = [load(dataset_name,dataset_type) for dataset_type in ["par_data","top","bc"]]
+    loaded_data = [load(dataset_name,dataset_type) for dataset_type in ["par_data","bc"]]
     mask = DataMask(loaded_data[0],)[type_dic[dataset_type]]
     test_data = [data[mask] for data in loaded_data]
     return test_data
@@ -104,10 +104,9 @@ class LearnedSimulator:
 
         return ML_Rollout
 
-    def Rollout(self,data_agr: np.ndarray, top_agr: np.ndarray,BC_agr:np.ndarray, i:int,show_tqdm: bool = False):
+    def Rollout(self,data_agr: np.ndarray,BC_agr:np.ndarray, i:int,show_tqdm: bool = False):
         self.BC = BC_agr[i].copy()
         self.par_data = data_agr[i].copy()
-        self.topology = top_agr[i].copy()
         self.BC_rollout = self.BCrollout(show_tqdm)
         self.super_topology = ConstructTopology(self.par_data[0],self.BC_rollout[0],self.super_tol)
         self.GroundTruth = self.GroundTruth_Rollout(show_tqdm)

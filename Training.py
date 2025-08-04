@@ -8,15 +8,15 @@ print(torch.cuda.is_available())
 
 force_reload    = True
 train           = True
-dataset_name    = "Pill_Mono"
-model_ident     = "Initial"
+dataset_name    = "N400_Mono"
+model_ident     = "Emb16"
 bundle_size     = 1 
 forward_steps   = 0
-msg_num         = 4
-emb_dim         = 64
-learning_rate   = 0.000005
-batch_size      = 16
-epochs          = 500
+msg_num         = 3
+emb_dim         = 16
+learning_rate   = 0.000001
+batch_size      = 32
+epochs          = 200
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 
@@ -42,9 +42,9 @@ if train == True:
     model_name=f"{dataset_name}_{model_ident}"
     model, msg = GetModel(dataset_name,
                           model_ident,
-                          msg_num=4,
-                          emb_dim=16,
-                          num_layers=2,
+                          msg_num=msg_num,
+                          emb_dim=emb_dim,
+                          num_layers=3,
                           bundle_size=bundle_size)
     SaveModelInfo(model,dataset_name,model_ident)
     

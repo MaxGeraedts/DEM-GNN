@@ -78,7 +78,7 @@ def PlotGraph(ax, data,limits=None,manual_axes=False,plot_lines=True,normalize=F
     ax.set(xlabel='X',ylabel="Y",zlabel="Z")
     ax.set_aspect('equal')
 
-def PlotGraphComparison(t,Rollout,sample_idx,tol,plot_lines=True):
+def PlotGraphComparison(t,Rollout,sample_idx,tol,plot_lines=True,PlotBoundary=False):
     fig, axes = plt.subplots(1,2, subplot_kw={'projection': '3d'},figsize=(20,10))
     PlotGraph(axes[0],Rollout.GroundTruth[t], plot_lines=plot_lines)
     PlotGraph(axes[1],Rollout.ML_rollout[t], plot_lines=plot_lines)
@@ -88,9 +88,10 @@ def PlotGraphComparison(t,Rollout,sample_idx,tol,plot_lines=True):
     legend_without_duplicate_labels(axes[1])
     fig.text(0.4,1,f"Graph Comparison",fontsize=25,fontname="Times New Roman",fontweight="bold")
     fig.suptitle(f"Sample: {sample_idx}, Time: {t}, Tolerance: {tol}",fontsize=20,fontname="Times New Roman")
-    for ax in axes:
-        PlotBoundaryBox(Rollout.BC_rollout[0],ax,"dimgrey","--",2)
-        PlotBoundaryBox(Rollout.BC_rollout[t],ax,"black","-",2)
+    if PlotBoundary=='box':
+        for ax in axes:
+            PlotBoundaryBox(Rollout.BC_rollout[0],ax,"dimgrey","--",2)
+            PlotBoundaryBox(Rollout.BC_rollout[t],ax,"black","-",2)
     return fig
 
 ## Plot two particles system
