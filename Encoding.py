@@ -1,5 +1,4 @@
 import os
-
 import numpy as np
 import numpy.typing as npt
 import torch
@@ -8,6 +7,7 @@ from tqdm import tqdm
 import torch_geometric.transforms as T
 import scipy.io
 from typing import Literal
+import json
 
 def NumpyGroupby(group_key,group_value):
     index_sort = group_key.argsort()
@@ -412,6 +412,21 @@ def ConvertToDirected(data):
     data.edge_index = data.edge_index[:,dirmask]
     data.edge_mask = data.edge_mask[dirmask]
     return data
+
+def SaveRolloutAsJSON(datalist,dataset_name,model_ident,sample_idx):
+    data_dir = r"D:\TUE\Master\Graduation\Data"
+    results_dir = os.path.join(data_dir,dataset_name,'Results')
+    sim_dir = os.listdir(results_dir)[sample_idx]
+    fig_dir = os.path.join(results_dir,sim_dir,"Figures",model_ident)
+    os.makedirs(fig_dir,exist_ok=True)
+    for t,data in enumerate(datalist):
+        top = data.MatlabTopology.copy()
+        top[top>=0] +=1
+        dict = {"pos": data.pos[data.mask].tolist(),
+                "top": top.tolist()}
+        filename = os.path.join(fig_dir,f'data{t+1:03d}.json')
+        with open(filename,'w') as f:
+            json.dump(dict,f)
 
 if __name__ == "__main__":
     dataset_name = "2Sphere"
