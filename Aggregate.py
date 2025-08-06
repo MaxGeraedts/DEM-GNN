@@ -1,11 +1,8 @@
-from Encoding import AggregateRawData, save
+from Encoding import AggregateRawData, save, GetDataDir
 import os
 
 dataset_name = r"N400_Mono"
-
-data_dir = r"D:\TUE\Master\Graduation\Data"
-if os.path.exists(data_dir) != True:
-    data_dir = os.path.join("..","Data")
+data_dir = GetDataDir()
 
 par_data, topology, boundary_conditions, = None, None, None
 Aggregate = AggregateRawData(dataset_name,data_dir)

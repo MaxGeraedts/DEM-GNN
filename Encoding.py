@@ -9,6 +9,15 @@ import scipy.io
 from typing import Literal
 import json
 
+def GetDataDir():
+    if os.getlogin() == 'Gebruiker':
+        data_dir = r"D:\TUE\Master\Graduation\Data"
+    elif os.getlogin() == '20182319': 
+        data_dir = r'C:\Users\20182319\Documents\Master\Graduation\Data'
+    else:
+        data_dir = os.path.join("..","Data")
+    return data_dir
+
 def NumpyGroupby(group_key,group_value):
     index_sort = group_key.argsort()
     key_sort = group_key[index_sort]

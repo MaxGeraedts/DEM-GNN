@@ -319,7 +319,7 @@ def CompareModels(dataset_name:str, model_idents:list[str], Evaluation_function)
                 metric_dict['Ground truth'] = value
     
     print("\n",Evaluation_function.description,"\n") 
-    print(f"{"Ground truth":<50}{metric_dict["Ground truth"]:.10f}","\n")
+    print(f'{"Ground truth":<50}{metric_dict["Ground truth"]:.10f}',"\n")
     for metric, value in metric_dict.items():
         if metric != "Ground truth": print(f"{metric:<50}{value:.3f}")
 
