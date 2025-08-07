@@ -379,7 +379,7 @@ class Trainer:
         self.model_ident = model_ident
         self.model_name = f"{dataset_name}_{model_ident}"
 
-        self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print("Device: ", self.device)
         self.model.to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)

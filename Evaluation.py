@@ -2,6 +2,8 @@ import torch
 import torch_geometric.transforms as T
 from tqdm import tqdm, trange
 import numpy as np
+import json
+import os
 from typing import Literal
 from ML_functions import LearnedSimulator, NormalizeData, GetModel, Rescale, NormalizePos, MaskTestData
 from Encoding import NumpyGroupby
@@ -281,13 +283,13 @@ class Evaluation:
     
     def EvaluateMechanics(self,datalist_ML,datalist_GT):
         #CHECK NORMALIZATION!
-        model_prediction= np.array([[self.aggregation_function(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in tqdm(datalist_ML,disable=self._disable_tqdm)])
-        metrics = {"Model:": np.mean(model_prediction).item()}
-
+        metrics = {}
         if datalist_GT is not None:
             ground_truth    = np.array([[self.aggregation_function(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in tqdm(datalist_GT,disable=self._disable_tqdm)])
-            metrics["Ground truth"]  = np.mean(ground_truth).item()
-         
+            metrics["Ground truth"] = np.mean(ground_truth).item()
+
+        model_prediction= np.array([[self.aggregation_function(NormalizedResultantForce(data)) for data in datalist_sample] for datalist_sample in tqdm(datalist_ML,disable=self._disable_tqdm)])
+        metrics["Model:"] = np.mean(model_prediction).item()
         return metrics
 
     def __call__(self,datalist_ML,datalist_GT):
@@ -301,7 +303,7 @@ class Evaluation:
 
         return metrics    
     
-def CompareModels(dataset_name:str, model_idents:list[str], Evaluation_function):
+def CompareModels(dataset_name:str, model_idents:list[str], Evaluation_function, save_name:str):
     metric_dict = {}
     AggregatedArgs = MaskTestData(dataset_name,"test")
 
@@ -323,6 +325,9 @@ def CompareModels(dataset_name:str, model_idents:list[str], Evaluation_function)
     for metric, value in metric_dict.items():
         if metric != "Ground truth": print(f"{metric:<50}{value:.3f}")
 
+    filename = os.path.join(".",'Evaluation',f"{save_name}_metrics.json")
+    with open(filename,'w') as f:
+        json.dump(metric_dict,f)
     return metric_dict
 
 def CoordinationNumber(datalist):
