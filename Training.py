@@ -6,16 +6,16 @@ import numpy as np
 
 print(torch.cuda.is_available())
 
-force_reload    = True
+force_reload    = False
 train           = True
 dataset_name    = "N400_Mono"
-model_ident     = "lr1"
+model_ident     = "batch4"
 bundle_size     = 1 
 forward_steps   = 0
 msg_num         = 3
-emb_dim         = 16
-learning_rate   = 1
-batch_size      = 32
+emb_dim         = 128
+learning_rate   = 0.000001
+batch_size      = 4
 epochs          = 200
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])

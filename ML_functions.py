@@ -402,10 +402,10 @@ class Trainer:
 
     def batch_loop(self, dataloader, loss_list, opt=None):
         mean_loss = 0
-        for i, batch in enumerate(dataloader):
+        for batch in dataloader:
             batch_loss = self.loss_batch(batch.to(self.device), opt)
             mean_loss += batch_loss
-        mean_loss /= i
+        mean_loss /= len(dataloader)
         loss_list.append(mean_loss)
         return mean_loss,loss_list
 
