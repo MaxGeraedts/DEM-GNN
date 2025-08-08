@@ -6,7 +6,7 @@ import json
 import os
 from typing import Literal
 from ML_functions import LearnedSimulator, NormalizeData, GetModel, Rescale, NormalizePos, MaskTestData
-from Encoding import NumpyGroupby
+from Encoding import NumpyGroupby, ProjectPointsToHyperplane
 
 def GetAllContactpoints(data:object):
     real_edge = data.edge_index[:,data.edge_mask]
@@ -335,3 +335,45 @@ def CoordinationNumber(datalist):
     par_num = np.array([data.mask.sum().item() for data in datalist])
     coordination_number = contact_num/par_num
     return coordination_number
+
+def CheckCylindricalBC(points,cyl):
+    point_to_cyl_origin = points-cyl[:3]
+    cyl_axis = cyl[3:6]/np.linalg.norm(cyl[3:6])
+    radius = cyl[6]
+
+    axis_projection = point_to_cyl_origin*cyl_axis*cyl_axis
+    axis_projection += cyl[:3]
+    dist_axis = np.linalg.norm(points-axis_projection,axis=1)
+
+    if cyl[-2] == 1: 
+        bc_bool = dist_axis <= radius
+    if cyl[-2] == -1:
+        bc_bool = dist_axis >= radius
+
+    return bc_bool 
+
+def CheckPlanarBC(points,plane):
+    wallpoints = ProjectPointsToHyperplane(points,plane)  
+    vector = points-wallpoints 
+    vector /= np.linalg.norm(vector,axis=1,keepdims=True) 
+    normal_vector = plane[3:6]
+    bc_bool = np.all(vector == normal_vector,axis=1)    
+    return bc_bool
+
+def ValidateBC(par,bc_step):
+    bc_bool = np.empty([par.shape[0],bc_step.shape[1]])
+    for wall_id,wall in enumerate(bc_step[0]):
+        if wall[-1] == 1:
+            bc_bool[:,wall_id] = CheckCylindricalBC(par,wall)
+        if wall[-1] == 0:
+            bc_bool[:,wall_id] = CheckPlanarBC(par,wall)
+    return bc_bool
+
+def ParticlesOutsideBoundary(data_list,bc_rollout):
+    outside_particles = np.zeros(len(data_list))
+    for t,(data,bc_step) in enumerate(zip(data_list,bc_rollout)):
+        bc_bool = ValidateBC(np.array(data.pos[data.mask]),np.array(bc_step))
+        par_in_bounds = np.all(bc_bool,axis=1)
+        num_par_out_bounds = np.sum(~par_in_bounds).item()
+        outside_particles[t] = num_par_out_bounds
+    return outside_particles
