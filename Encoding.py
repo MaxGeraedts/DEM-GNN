@@ -10,9 +10,10 @@ from typing import Literal
 import json
 
 def GetDataDir():
-    if os.getlogin() == 'Gebruiker':
+    user = os.path.expanduser("~")
+    if user[-9:] == 'Gebruiker':
         data_dir = r"D:\TUE\Master\Graduation\Data"
-    elif os.getlogin() == '20182319': 
+    elif user[-8:] == '20182319': 
         data_dir = r'C:\Users\20182319\Documents\Master\Graduation\Data'
     if os.path.exists(data_dir) == False:
         data_dir = os.path.join("..","Data")
