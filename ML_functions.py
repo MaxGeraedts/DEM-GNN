@@ -369,7 +369,7 @@ class GCONV_Model_RelPos(torch.nn.Module):
     
 # Training
 class Trainer:
-    def __init__(self,model,dataset_train,dataset_val,batch_size,lr,epochs,dataset_name,model_ident,loss_fn=torch.nn.MSELoss()):
+    def __init__(self,model,batch_size,lr,epochs,dataset_name,model_ident,loss_fn=torch.nn.MSELoss()):
         self.model = model
         self.batch_size = batch_size
         self.lr = lr
@@ -382,9 +382,6 @@ class Trainer:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print("Device: ", self.device)
         self.model.to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
-        self.train_dl = self.make_data_loader(dataset_train, shuffle=True)
-        self.val_dl = self.make_data_loader(dataset_val, shuffle=False)
 
     def make_data_loader(self, dataset, shuffle):
         return DataLoader(dataset, batch_size=self.batch_size, shuffle=shuffle)
@@ -400,16 +397,20 @@ class Trainer:
             opt.zero_grad()
         return loss.item()
 
-    def batch_loop(self, dataloader, loss_list, opt=None):
+    def batch_loop(self, dataloader, loss_list=None, opt=None , disable_tqdm = True):
         mean_loss = 0
-        for batch in dataloader:
+        for batch in tqdm(dataloader,disable=disable_tqdm):
             batch_loss = self.loss_batch(batch.to(self.device), opt)
             mean_loss += batch_loss
         mean_loss /= len(dataloader)
-        loss_list.append(mean_loss)
+        if loss_list is not None: loss_list.append(mean_loss)
         return mean_loss,loss_list
 
-    def train_loop(self):
+    def train_loop(self,dataset_train,dataset_val):
+        self.train_dl = self.make_data_loader(dataset_train, shuffle=True)
+        self.val_dl = self.make_data_loader(dataset_val, shuffle=False)
+        self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
+
         train_loss, val_loss = [], []
         best_model_loss = np.inf
         for epoch in tqdm(range(self.epochs)):

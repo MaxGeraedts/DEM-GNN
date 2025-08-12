@@ -9,14 +9,14 @@ print(torch.cuda.is_available())
 force_reload    = False
 train           = True
 dataset_name    = "N400_Mono"
-model_ident     = "batch4"
-bundle_size     = 1 
+model_ident     = "bundle"
+bundle_size     = 3 
 forward_steps   = 0
 msg_num         = 3
 emb_dim         = 128
 learning_rate   = 0.000001
-batch_size      = 4
-epochs          = 200
+batch_size      = 8
+epochs          = 100
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 
