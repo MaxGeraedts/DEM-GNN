@@ -55,7 +55,7 @@ class LearnedSimulator:
         GroundTruth = np.empty(GetLength(self.par_data),dtype=object)
         for t in trange(GetLength(self.par_data),disable = not show_tqdm):
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,self.par_data[t],self.BC_rollout[t],self.tol)
-            GroundTruth[t] = ToPytorchData(self.par_data[t],self.BC_rollout[t],self.tol,MatlabTopology)[0]
+            GroundTruth[t], MatlabTopology = ToPytorchData(self.par_data[t],self.BC_rollout[t],self.tol,MatlabTopology)[:2]
             GroundTruth[t].MatlabTopology = MatlabTopology
         return GroundTruth
     
@@ -76,7 +76,7 @@ class LearnedSimulator:
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
 
             if ML_Rollout is not None:
-                data = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[0]
+                data,MatlabTopology = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[:2]
                 data.MatlabTopology = MatlabTopology
                 ML_Rollout.append(data)
 
@@ -93,7 +93,7 @@ class LearnedSimulator:
             BC_t = self.BC.copy()
             BC_t[0] += BC_t[1]
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC_t,self.tol)
-            data = ToPytorchData(par_inp,BC_t,self.tol,MatlabTopology)[0]
+            data, MatlabTopology = ToPytorchData(par_inp,BC_t,self.tol,MatlabTopology)[:2]
             data.MatlabTopology = MatlabTopology
             ML_Rollout.append(data)
 

@@ -116,12 +116,13 @@ def BCEncoding(par_step,top_step,bc_step):
                                 axis=1)
 
     P_P_top = top_step[top_step[:,1]>=0]
-    top_new = np.concatenate([P_P_top,P_W_top],axis=0)
+    MatlabTopology = np.concatenate([P_P_top,P_W_top],axis=0)
     n_new = P_virtual.shape[0]
     n_par = par_step.shape[0]
-    top_new[-n_new:,1] = np.arange(n_par,n_new+n_par,1)
+    top_enc = MatlabTopology.copy()
+    top_enc[-n_new:,1] = np.arange(n_par,n_new+n_par,1)
     
-    return P_virtual, top_new
+    return P_virtual, top_enc, MatlabTopology
 
 # Encode the Aggregated data
 def EncodeNodes(par_t,top_t,bc_t):
@@ -140,9 +141,9 @@ def EncodeNodes(par_t,top_t,bc_t):
                              np.zeros((par_t.shape[0],3)),               # Zeros for normal vector features
                              np.ones((par_t.shape[0],1))),               # Ones as real particle binary classifier
                              axis=1)
-    P_virtual, top_new = BCEncoding(P_real[:,:3],top_t,bc_t)              # Virtual particle coordinates & Updated topology indexing
+    P_virtual, top_new, MatlabTopology = BCEncoding(P_real[:,:3],top_t,bc_t)              # Virtual particle coordinates & Updated topology indexing
     par_enc = np.concatenate((P_real,P_virtual),axis=0)
-    return par_enc.astype(float),top_new
+    return par_enc.astype(float),top_new,MatlabTopology
 
 # Save the aggregated and encoded dataset
 def save(dataset_name,data_agr=None,top_agr=None,bc=None):
@@ -379,9 +380,9 @@ def ToPytorchData(par_data,bc,tol:float=0.0,topology:bool=None, label_data:bool=
     """
     with torch.no_grad():
         if topology is None:
-            topology = ConstructTopology(par_data,bc,tol)
+            MatlabTopology = ConstructTopology(par_data,bc,tol)
 
-        EncodedParticles, EncodedTopology = EncodeNodes(par_data,topology,bc)
+        EncodedParticles, EncodedTopology, MatlabTopology = EncodeNodes(par_data,topology,bc)
 
         real_idx = EncodedParticles[:,-1:].squeeze().nonzero()
         RealParticleMask = np.squeeze(EncodedParticles[:,-1:]==1)
@@ -397,7 +398,7 @@ def ToPytorchData(par_data,bc,tol:float=0.0,topology:bool=None, label_data:bool=
             center = T.Center()
             data = center(data)
 
-    return data, topology, EncodedTopology
+    return data, MatlabTopology, EncodedTopology
 
 def GetLength(listorarray):
     if type(listorarray) == list:

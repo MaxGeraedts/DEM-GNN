@@ -89,7 +89,7 @@ def GetContactForce(data):
     Fij = Fij_size*contactnormal
     return Fij.T
 
-def GetVolumeAndExtremeDims(BC_t):
+def GetVolumeAndExtremeDims(BC_t, case):
     """Given a boundary condition array at time t, calculate volume
 
     Args:
@@ -98,10 +98,9 @@ def GetVolumeAndExtremeDims(BC_t):
     Returns:
         float: Boundary volume
     """
-    BC = BC_t[0]
-    xmax, xmin = BC.item(0,0), BC.item(3,0)
-    ymax, ymin = BC.item(1,1), BC.item(4,1)
-    zmax, zmin = BC.item(2,2), BC.item(5,2)
+    xmax, xmin = BC_t.item(0,0), BC_t.item(3,0)
+    ymax, ymin = BC_t.item(1,1), BC_t.item(4,1)
+    zmax, zmin = BC_t.item(2,2), BC_t.item(5,2)
     maxdim = np.array([[xmin,xmax],[ymin,ymax],[zmin,zmax]])
     vol = (xmax-xmin)*(ymax-ymin)*(zmax-zmin)
     return vol,maxdim
@@ -122,7 +121,7 @@ def GetStressTensor(data,BC):
 
     contactforce = GetContactForce(data)
     stress_tensor = torch.zeros((3,3))
-    vol = GetVolumeAndExtremeDims(BC)[0]
+    vol = GetVolumeAndExtremeDims(BC,case='box')[0]
     for contact in range(contactforce.shape[0]):
         Fij = contactforce[contact].reshape(3,1)
         Lij = contactvector[contact].reshape(1,3)
@@ -144,7 +143,7 @@ def GetInternalStressRollout(Rollout):
     for t in range(Rollout.timesteps):
         data = Rollout.GroundTruth[t]
         data = ConvertToDirected(data.clone())
-        BC = Rollout.BC_rollout[t][:,:3]
+        BC = Rollout.BC_rollout[t][0][:,:3]
         stress_evo[t] = GetStressTensor(data,BC)
     return stress_evo
 
@@ -167,8 +166,8 @@ def AggregateForces(datalist):
     F_sum = torch.sum(F_norm,1)
     return F_contact,F_res, F_norm, F_sum
 
-def GetWallArea(BC):
-    maxdims = GetVolumeAndExtremeDims(BC)[1]
+def GetWallArea(BC,case):
+    maxdims = GetVolumeAndExtremeDims(BC,case)[1]
     [x,y,z] = maxdims[:,1] - maxdims[:,0]
     x,y,z = x.item(),y.item(),z.item()
     A_wall = [[y*z,x*z,x*y,y*z,x*z,x*y]]
@@ -180,7 +179,7 @@ def GetWallForce(data):
     F_PWcontact = Fcontact[np.invert(data.edge_mask),:]
 
     Wallcontact = data.MatlabTopology[data.MatlabTopology[:,1]<0]
-    Wallcontact[:,1] += 2
+    Wallcontact[:,1] += 1
     Wallcontact[:,1] *= -1
     Wall_idx = Wallcontact[:,1]
 
@@ -189,8 +188,8 @@ def GetWallForce(data):
 
     return F_wall
 
-def GetWallStress(datalist,BC_rollout):
-    A_wall = np.array([np.squeeze(GetWallArea(BC)) for BC in BC_rollout])
+def GetWallStress(datalist,BC_rollout,case='box'):
+    A_wall = np.array([np.squeeze(GetWallArea(BC[0],case)) for BC in BC_rollout])
     F_wall = np.array([np.linalg.norm(GetWallForce(data),axis=1) for data in datalist])
     S_wall = F_wall/A_wall
     return S_wall
