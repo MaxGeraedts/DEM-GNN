@@ -50,8 +50,8 @@ if train == True:
     
     if msg == "No Trained model":
         print(f"Training {model_name}")
-        trainer = Trainer(model, dataset_train,dataset_val,batch_size,learning_rate,epochs,dataset_name,model_ident)
-        trainer.train_loop()
+        trainer = Trainer(model,batch_size,learning_rate,epochs,dataset_name,model_ident)
+        trainer.train_loop(dataset_train,dataset_val)
         SaveTrainingInfo(dataset_train,trainer)
 
     model, msg = GetModel(dataset_name,model_ident)
@@ -68,6 +68,6 @@ if train == True and msg == 'Loaded model':
                                         model_ident = model_ident) 
                                         for dataset_type in ["train"]]
     print(f"Training {model_name}_Push")
-    trainer = Trainer(model, dataset_train,dataset_val,batch_size,learning_rate,epochs,dataset_name,model_ident=f"{model_ident}_Push")    
-    trainer.train_loop()
+    trainer = Trainer(model,batch_size,learning_rate,epochs,dataset_name,model_ident=f"{model_ident}_Push")    
+    trainer.train_loop( dataset_train,dataset_val)
     SaveTrainingInfo(dataset_train,trainer)
