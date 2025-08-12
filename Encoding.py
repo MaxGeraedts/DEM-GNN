@@ -143,15 +143,6 @@ def EncodeNodes(par_t,top_t,bc_t):
     par_enc = np.concatenate((P_real,P_virtual),axis=0)
     return par_enc.astype(float),top_new
 
-# Retrieve raw data directory on the local drive
-def GetDataDir():
-    user = os.path.expanduser("~")
-    if user[-8:] == "20182319":
-        data_dir = os.path.join(user,r"Documents\Master\Graduation\Data")
-    else:
-        data_dir = r"D:\Tue Files\Master\Graduation\Data"
-    return data_dir
-
 # Save the aggregated and encoded dataset
 def save(dataset_name,data_agr=None,top_agr=None,bc=None):
     """Saves aggregated encoded data
