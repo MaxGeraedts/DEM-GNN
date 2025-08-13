@@ -5,7 +5,7 @@ import numpy as np
 import json
 import os
 from typing import Literal
-from ML_functions import LearnedSimulator, NormalizeData, GetModel, Rescale, NormalizePos, MaskTestData
+from ML_functions import DEM_Dataset,LearnedSimulator, NormalizeData, GetModel, Rescale, NormalizePos, MaskTestData, Trainer
 from Encoding import NumpyGroupby, ProjectPointsToHyperplane
 
 def GetAllContactpoints(data:object):
@@ -216,19 +216,21 @@ def NormalizedResultantForce(data):
     Fres_size_normalized  = Fres_norm/F_vectors_norm_sum
     return Fres_size_normalized
 
-def AggregatedRollouts(dataset_name:str,model_ident:str,AggregatedArgs:tuple):
-    model = GetModel(dataset_name,model_ident)[0]
-    scale_name = f"{dataset_name}_bund{model.bundle_size}"
-    transform = T.Compose([T.Cartesian(False),T.Distance(norm=False,cat=True),NormalizeData(dataset_name,scale_name)])
-    Simulation = LearnedSimulator(model, scale_function = Rescale(dataset_name,scale_name),transform = transform)
+def AggregatedRollouts(model,AggregatedArgs:tuple,test_dataset_name=None):
+    scale_name = f"{test_dataset_name}_bund{model.bundle_size}"
+    transform = T.Compose([T.Cartesian(False),T.Distance(norm=False,cat=True),NormalizeData(test_dataset_name,scale_name)])
+    Simulation = LearnedSimulator(model, scale_function = Rescale(test_dataset_name,scale_name),transform = transform)
 
     datalist_ML = []
     datalist_GT = []
+    bc_agr      = []
     for sample_idx in trange(AggregatedArgs[0].shape[0]):
         Simulation.Rollout(*AggregatedArgs,sample_idx)
         datalist_ML.append(Simulation.ML_rollout)
         datalist_GT.append(Simulation.GroundTruth)
-    return datalist_ML, datalist_GT
+        bc_agr.append(Simulation.BC_rollout)
+    bc_agr = np.concatenate(bc_agr,axis=0)
+    return datalist_ML, datalist_GT,bc_agr
 
 def DatalistToArray(datalist):
     pos_array = np.array([[data.pos[data.mask] for data in simulation] for simulation in datalist])
@@ -258,9 +260,11 @@ class Evaluation:
         if mode == "mechanics_sum":
             self.aggregation_function = np.sum
             self.description = "Mean sum of normalized resultantant forces"
+            self.abreviation = "MSNRF"
         if mode == "mechanics_mean":
             self.aggregation_function = np.mean
             self.description = "Mean of normalized resultantant forces"
+            self.abreviation = "MNRF"
         else:
             self.description = "Geometric measures"
 
@@ -300,35 +304,78 @@ class Evaluation:
         if self.print_results == True:
             [print(f"{metric:<50}{value:4f}") for metric, value in metrics.items()]   
 
-        return metrics    
-    
-def CompareModels(dataset_name:str, model_idents:list[str], Evaluation_function, save_name:str):
-    metric_dict = {}
-    AggregatedArgs = MaskTestData(dataset_name,"test")
+        return metrics 
+       
+class MSEloss(Trainer):
+    def __init__(self,model,batch_size):
+        super().__init__(model, dataset_name=None, model_ident=None, batch_size=batch_size,lr=None, epochs=None)
 
-    for i, model_ident in enumerate(model_idents):
-        datalist_ML, datalist_GT = AggregatedRollouts(dataset_name,f"{model_ident}_Push",AggregatedArgs)
-        if i == 0:
-            metrics = Evaluation_function(datalist_ML, datalist_GT)
+    def __call__(self,dataset_test):
+        test_dl = self.make_data_loader(dataset_test,False)
+        mean_test_loss = self.batch_loop(test_dl,disable_tqdm=False)[0]
+        return mean_test_loss 
+       
+class CompareModels():
+    def __init__(self,test_dataset_name:str, model_dataset_name:str,model_ident, evaluation_function,save_name):
+        try:
+            filename = os.path.join(".",'Evaluation',f"{save_name}_metrics.json")
+            with open(filename, 'r') as file:
+                self.metric_dict = json.load(file)
+        except:
+            self.metric_dict = {}
+        self.AggregatedArgs = MaskTestData(test_dataset_name,"test")
+        self.test_dataset_name = test_dataset_name
+        self.model_dataset_name = model_dataset_name
+        self.model_ident = model_ident
+        self.eval_function = evaluation_function
+        self.model = GetModel(model_dataset_name,model_ident)[0]
+        AggregatedArgs = MaskTestData(test_dataset_name,"test")
+        self.datalist_ML, self.datalist_GT, self.bc_agr = AggregatedRollouts(self.model,AggregatedArgs,test_dataset_name)
+        self.save_name = save_name
+
+    def EvaluateEquilibrium(self,eval_GT:bool=False):
+        if eval_GT is True:
+            metrics = self.eval_function(self.datalist_ML, self.datalist_GT)
         else:
-            metrics = Evaluation_function(datalist_ML, None)
+            metrics = self.eval_function(self.datalist_ML, None)
 
         for (key,value) in metrics.items():
             if key == "Model:":
-                metric_dict[model_ident] = value
+                self.metric_dict[f"{self.eval_function.abreviation}: {self.model_ident}"] = value
             else:
-                metric_dict['Ground truth'] = value
+                self.metric_dict['MNRF: Groundtruth'] = value
+
+    def EvaluateMSE(self,batch_size):   
+        dataset_test = DEM_Dataset(self.test_dataset_name, 'test', force_reload=False, bundle_size=self.model.bundle_size)
+        loss_function = MSEloss(self.model,batch_size)
+        MSE_loss = loss_function(dataset_test)
+        self.metric_dict[f"MSE: {self.model_ident}"] = MSE_loss
+
+    def EvaluateParticlesOutsideBoundary(self):
+        data_list_flat = [data for datalist in self.datalist_ML for data in datalist]
+        par_bool = ParticlesOutsideBoundary(data_list_flat,self.bc_agr)
+        outpar = np.mean(par_bool).astype(int)
+        self.metric_dict[f"Escaping Particles: {self.model_ident}"] = outpar.item()
+        return par_bool
     
-    print("\n",Evaluation_function.description,"\n") 
-    print(f'{"Ground truth":<50}{metric_dict["Ground truth"]:.10f}',"\n")
-    for metric, value in metric_dict.items():
-        if metric != "Ground truth": print(f"{metric:<50}{value:.3f}")
+    def PrintResults(self):
+        print("\n",self.eval_function.description,"\n") 
+        for metric, value in self.metric_dict.items():
+            if self.eval_function.abreviation in metric: print(f"{metric:<50}{value:.3f}")
 
-    filename = os.path.join(".",'Evaluation',f"{save_name}_metrics.json")
-    with open(filename,'w') as f:
-        json.dump(metric_dict,f)
-    return metric_dict
+        print("\n","One-step Mean Squared Error","\n")
+        for metric, value in self.metric_dict.items():
+            if "MSE" in metric: print(f"{metric:<50}{value:.3f}")
+        
+        print("\n","Mean number of particles escaping Boundary Conditions","\n")
+        for metric, value in self.metric_dict.items():
+            if "Escaping Particles" in metric: print(f"{metric:<50}{value:.3f}")
 
+    def SaveResults(self):
+        filename = os.path.join(".",'Evaluation',f"{self.save_name}_metrics.json")
+        with open(filename,'w') as f:
+            json.dump(self.metric_dict,f)
+    
 def CoordinationNumber(datalist):
     contact_num = np.array([data.edge_index.shape[1] for data in datalist])
     par_num = np.array([data.mask.sum().item() for data in datalist])
@@ -376,3 +423,4 @@ def ParticlesOutsideBoundary(data_list,bc_rollout):
         num_par_out_bounds = np.sum(~par_in_bounds).item()
         outside_particles[t] = num_par_out_bounds
     return outside_particles
+

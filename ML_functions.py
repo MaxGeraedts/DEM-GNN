@@ -204,7 +204,9 @@ def DataMask(data,test_step: int = 20, val_step: int = 10):
 class DEM_Dataset(InMemoryDataset):
     def __init__(self,dataset_name: str,
                  Dataset_type: Literal["train","validate","test"],
-                 force_reload=False,pre_transform=None, transform=None, pre_filter=None,
+                 force_reload=False,
+                 pre_transform = T.Compose([T.Cartesian(False),T.Distance(norm=False,cat=True)]), 
+                 transform=None, pre_filter=None,
                  root: str = os.path.join(os.getcwd(),"Data"),
                  super_tol: int = 6,
                  tol: float = 0,
