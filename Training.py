@@ -8,14 +8,16 @@ print(torch.cuda.is_available())
 
 force_reload    = False
 train           = True
-dataset_name    = "2Sphere"
-model_ident     = "lr_small"
+dataset_name    = "N400_Mono"
+msg_num         = 3
+
+model_ident     = f"msg{msg_num}"
 bundle_size     = 3 
 forward_steps   = 5
-msg_num         = 3
+
 emb_dim         = 128
-learning_rate   = 0.0000001
-batch_size      = 32
+learning_rate   = 0.000001
+batch_size      = 8
 epochs          = 100
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
