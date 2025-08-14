@@ -407,6 +407,10 @@ class Trainer:
         mean_loss /= len(dataloader)
         if loss_list is not None: loss_list.append(mean_loss)
         return mean_loss,loss_list
+    
+    def save_loss(self,train_loss,val_loss):
+        np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss"),train_loss)
+        np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss"),val_loss)
 
     def train_loop(self,dataset_train,dataset_val):
         self.train_dl = self.make_data_loader(dataset_train, shuffle=True)
@@ -427,12 +431,12 @@ class Trainer:
                 best_model_loss = mean_val_loss
                 torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name))
             
-            if epoch % 10 == 0:
-                np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss"),train_loss)
-                np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss"),val_loss)
+            if epoch % 25 == 0: 
+                self.save_loss(train_loss,val_loss)
 
             print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.10f}  |  Mean Validation Loss: {mean_val_loss:.10f}",flush=True)
 
+        self.save_loss(train_loss,val_loss)
 
 def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4,num_layers=2,bundle_size=1):
     model_name = f"{dataset_name}_{model_ident}"
