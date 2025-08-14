@@ -9,7 +9,7 @@ print(torch.cuda.is_available())
 force_reload    = False
 train           = True
 dataset_name    = "N400_Mono"
-msg_num         = 3
+msg_num         = 0
 
 model_ident     = f"msg{msg_num}"
 bundle_size     = 3 
