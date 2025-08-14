@@ -7,6 +7,7 @@ import os
 from typing import Literal
 from ML_functions import DEM_Dataset,LearnedSimulator, NormalizeData, GetModel, Rescale, NormalizePos, MaskTestData, Trainer
 from Encoding import NumpyGroupby, ProjectPointsToHyperplane
+from IPython.display import clear_output
 
 def GetAllContactpoints(data:object):
     real_edge = data.edge_index[:,data.edge_mask]
@@ -268,9 +269,6 @@ class Evaluation:
         else:
             self.description = "Geometric measures"
 
-        if self.print_results == True:
-            print(self.description)
-
     def EvaluateGeometric(self,datalist_ML,datalist_GT):
         pos_ML = DatalistToArray(datalist_ML)[0]
         pos_GT, prop_GT = DatalistToArray(datalist_GT)
@@ -316,7 +314,7 @@ class MSEloss(Trainer):
         return mean_test_loss 
        
 class CompareModels():
-    def __init__(self,test_dataset_name:str, model_dataset_name:str,model_ident, evaluation_function,save_name):
+    def __init__(self,test_dataset_name:str, model_dataset_name:str,model_ident,save_name,evaluation_function=Evaluation(mode='mechanics_mean',print_results=True)):
         try:
             filename = os.path.join(".",'Evaluation',f"{save_name}_metrics.json")
             with open(filename, 'r') as file:
@@ -354,7 +352,7 @@ class CompareModels():
     def EvaluateParticlesOutsideBoundary(self):
         data_list_flat = [data for datalist in self.datalist_ML for data in datalist]
         par_bool = ParticlesOutsideBoundary(data_list_flat,self.bc_agr)
-        outpar = np.mean(par_bool).astype(int)
+        outpar = np.mean(par_bool)
         self.metric_dict[f"Escaping Particles: {self.model_ident}"] = outpar.item()
         return par_bool
     
@@ -424,3 +422,29 @@ def ParticlesOutsideBoundary(data_list,bc_rollout):
         outside_particles[t] = num_par_out_bounds
     return outside_particles
 
+def EvaluateExperiment(exp_settings,save_name):
+    par_bool = []
+    for i,(exp_args) in enumerate(exp_settings):
+        eval = CompareModels(*exp_args,save_name)
+        if i == 0:eval_GT=True
+        eval.EvaluateEquilibrium(eval_GT)
+        eval.EvaluateMSE(batch_size=16)
+        par_bool.append(eval.EvaluateParticlesOutsideBoundary())
+        eval.SaveResults()
+        clear_output()
+    eval.PrintResults()
+    return eval.metric_dict
+
+def GetExperimentSettings(experiment_ident:Literal['N400Embedding','2Sphere'], test_dataset_name:str):
+
+    if experiment_ident == 'N400Embedding':
+        model_idents = ['Emb128','bundle','forward5','forward10','forward15','forward20','Allout']
+        model_dataset_names = ['N400_Mono']*len(model_idents)
+        test_dataset_names = [test_dataset_name]*len(model_idents)
+
+    if experiment_ident == '2Sphere':
+        model_idents = ['redo','Allout']
+        model_dataset_names = ['2Sphere']*len(model_idents)
+        test_dataset_names = [test_dataset_name]*len(model_idents)
+    exp_settings = np.array([test_dataset_names,model_dataset_names,model_idents]).T
+    return exp_settings

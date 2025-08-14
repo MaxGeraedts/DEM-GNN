@@ -1,7 +1,7 @@
 from Encoding import AggregateRawData, save, GetDataDir
 import os
 
-dataset_name = r"N400_Mono"
+dataset_name = r"N400_Hetero"
 data_dir = GetDataDir()
 
 par_data, topology, boundary_conditions, = None, None, None

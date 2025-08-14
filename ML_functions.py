@@ -427,7 +427,7 @@ class Trainer:
                 best_model_loss = mean_val_loss
                 torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name))
             
-            if epoch % 100 == 0:
+            if epoch % 10 == 0:
                 np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss"),train_loss)
                 np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss"),val_loss)
 
