@@ -106,8 +106,8 @@ def PlotAxes(bc_rollout,real_rollout,ML_rollout,dim,ax,normalize):
 
     ax.plot(bc_rollout[:,0,dim,dim]/r,'black')
     ax.plot(bc_rollout[:,0,dim+3,dim]/r,'black',label='Wall')
-    ax.plot(real_rollout[:,0,dim]/r, 'red', label='DEM Prediction')
-    ax.plot(real_rollout[:,1,dim]/r, 'blue', label='DEM Prediction')
+    ax.plot(real_rollout[:,0,dim]/r, 'red', label='DEM Prediction',alpha=0.5)
+    ax.plot(real_rollout[:,1,dim]/r, 'blue', label='DEM Prediction',alpha=0.5)
     ax.plot(ML_rollout[:,0,dim]/r, 'red', linestyle='dashed', label='ML Prediction')
     ax.plot(ML_rollout[:,1,dim]/r, 'blue', linestyle='dashed', label='ML Prediction')
     ax.set(xlabel='Timestep',ylabel=f'{coorstr[dim]} Coordinate (R normalized)')
