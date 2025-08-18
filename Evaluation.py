@@ -430,21 +430,35 @@ def EvaluateExperiment(exp_settings,save_name):
         eval.EvaluateEquilibrium(eval_GT)
         eval.EvaluateMSE(batch_size=16)
         par_bool.append(eval.EvaluateParticlesOutsideBoundary())
-        eval.SaveResults()
+        if save_name is not None: eval.SaveResults()
         clear_output()
     eval.PrintResults()
     return eval.metric_dict
 
-def GetExperimentSettings(experiment_ident:Literal['N400Embedding','2Sphere'], test_dataset_name:str):
+def GetExperimentSettings(experiment_ident:Literal['N400Embedding','2Sphere','N400msg','N400Error'], test_dataset_name:str,push:str=False):
 
     if experiment_ident == 'N400Embedding':
+        model_idents = ['Emb16','Emb32','Emb64','Emb128','Emb256']
+        model_dataset_names = ['N400_Mono']*len(model_idents)
+        test_dataset_names = [test_dataset_name]*len(model_idents)
+
+    if experiment_ident == 'N400Error':
         model_idents = ['Emb128','bundle','forward5','forward10','forward15','forward20','Allout']
         model_dataset_names = ['N400_Mono']*len(model_idents)
         test_dataset_names = [test_dataset_name]*len(model_idents)
 
+    if experiment_ident == 'N400msg':
+        model_idents = [f'msg{i}' for i in range(8)]
+        model_dataset_names = ['N400_Mono']*len(model_idents)
+        test_dataset_names = [test_dataset_name]*len(model_idents)
+
     if experiment_ident == '2Sphere':
-        model_idents = ['redo','Allout']
+        model_idents = ['redo','Allout','lr_small']
         model_dataset_names = ['2Sphere']*len(model_idents)
         test_dataset_names = [test_dataset_name]*len(model_idents)
+    
+    if push == True:
+        model_idents = [string+'_Push' for string in model_idents]
+    
     exp_settings = np.array([test_dataset_names,model_dataset_names,model_idents]).T
     return exp_settings
