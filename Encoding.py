@@ -416,7 +416,7 @@ def ConvertToDirected(data):
     return data
 
 def SaveRolloutAsJSON(datalist,dataset_name,model_ident,sample_idx):
-    data_dir = r"D:\TUE\Master\Graduation\Data"
+    data_dir = GetDataDir()
     results_dir = os.path.join(data_dir,dataset_name,'Results')
     sim_dir = os.listdir(results_dir)[sample_idx]
     fig_dir = os.path.join(results_dir,sim_dir,"Figures",model_ident)
