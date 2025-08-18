@@ -9,15 +9,16 @@ print(torch.cuda.is_available())
 force_reload    = False
 train           = True
 dataset_name    = "N400_Mono"
-msg_num         = 0
+msg_num         = 5
 
-model_ident     = f"msg{msg_num}"
+num_layers      = 1
+model_ident     = f"layer{num_layers}"
 bundle_size     = 3 
 forward_steps   = 5
 
 emb_dim         = 128
-learning_rate   = 0.000001
-batch_size      = 8
+learning_rate   = 1e-06
+batch_size      = 32
 epochs          = 100
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
@@ -46,7 +47,7 @@ if train == True:
                           model_ident,
                           msg_num=msg_num,
                           emb_dim=emb_dim,
-                          num_layers=3,
+                          num_layers=num_layers,
                           bundle_size=bundle_size)
     SaveModelInfo(model,dataset_name,model_ident)
     
