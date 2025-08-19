@@ -248,6 +248,7 @@ def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles,sharey=False):
     PlotFnormDistribution(ax[1],quantiles,Fnorm_ML,"red")
     ax[1].legend(title="Model",title_fontproperties={"size":10,"weight":"bold"})
     ax[1].set_xlabel("Increment")
+    ax[0].set_ylim([0,1])
     return fig, ax
 
 from Evaluation import GetWallStress
