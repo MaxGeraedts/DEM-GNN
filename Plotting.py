@@ -235,7 +235,7 @@ def PlotFnormDistribution(ax,quantiles,Fnorm,color):
 def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles,sharey=False):
     fig, ax = plt.subplots(1,2,figsize=(12, 5),sharey=sharey,sharex=True)
     plt.rcParams["font.family"] = "Times New Roman"
-    fig.suptitle("Evolution of the Resultant Force Distribution",
+    fig.suptitle("Evolution of the Normalized Mean Resultant Force Distribution",
                 fontname="Times New Roman",
                 fontweight='bold',
                 fontsize=20)
