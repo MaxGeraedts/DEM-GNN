@@ -69,6 +69,15 @@ class AggregateRawData():
             bc_sim = scipy.io.loadmat(os.path.join(sim_dir,"BC.mat"))['BC']
         return bc_sim
     
+    def _runtime_post(self,simdir):
+        start_file = os.path.join(simdir,'data_particle.dat')
+        end_file = os.path.join(simdir,'Particles100.txt')
+
+        start_time = os.stat(start_file).st_ctime
+        end_time = os.stat(end_file).st_ctime
+
+        return end_time-start_time
+
     def ParticleData(self):
         par_data = np.array([self._ParticleData(sim_dir) for sim_dir in tqdm(self.sim_dirs)])
         return par_data
@@ -80,6 +89,12 @@ class AggregateRawData():
     def BoundaryConditions(self):
         boundary_conditions = [self._BoundaryConditions(sim_dir) for sim_dir in tqdm(self.sim_dirs)]
         return np.array(boundary_conditions)
+    
+    def RuntimeAnalysis(self):
+        calc_time = np.array([self._runtime_post(sim_dir) for sim_dir in tqdm(self.sim_dirs)])
+        mean_calc_time = np.mean(calc_time)
+        return mean_calc_time
+
 
 # Generate and encode virtual particles at BC intersections
 def GetVirtualParticlesCoords(par_step,top_step,bc_step):
