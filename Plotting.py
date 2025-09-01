@@ -20,10 +20,10 @@ def PlotBoundaryBox(BC,ax,colour,linestyle,linewidth=1):
 ## Plotting the topology as a graph
 
 # Remove legend duplicates
-def legend_without_duplicate_labels(ax):
+def legend_without_duplicate_labels(ax,**kwargs):
     handles, labels = ax.get_legend_handles_labels()
     unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
-    ax.legend(*zip(*unique),loc='lower right')
+    ax.legend(*zip(*unique),**kwargs)
 
 
 # Given encoded data plot graph
@@ -101,32 +101,29 @@ def PlotAxes(bc_rollout,real_rollout,ML_rollout,dim,ax,normalize):
     r = real_rollout[0][0,3]
     if normalize == False:
         r = 1
-
+    lw = 1
     coorstr = ['X','Y','Z']
 
     ax.plot(bc_rollout[:,0,dim,dim]/r,'black')
     ax.plot(bc_rollout[:,0,dim+3,dim]/r,'black',label='Wall')
-    ax.plot(real_rollout[:,0,dim]/r, 'red', label='DEM Prediction',alpha=0.5)
-    ax.plot(real_rollout[:,1,dim]/r, 'blue', label='DEM Prediction',alpha=0.5)
-    ax.plot(ML_rollout[:,0,dim]/r, 'red', linestyle='dashed', label='ML Prediction')
-    ax.plot(ML_rollout[:,1,dim]/r, 'blue', linestyle='dashed', label='ML Prediction')
+    ax.plot(real_rollout[:,0,dim]/r, 'darkred', label='DEM: top particle')
+    ax.plot(real_rollout[:,1,dim]/r, 'darkblue', label='DEM: bottom particle')
+    ax.plot(ML_rollout[:,0,dim]/r, 'red', linestyle=(0, (3, 10)), label='ML: top particle', linewidth=lw,alpha=1)
+    ax.plot(ML_rollout[:,1,dim]/r, 'blue', linestyle=(0, (3, 10)), label='ML: bottom particle', linewidth=lw,alpha=1)
     ax.set(xlabel='Timestep',ylabel=f'{coorstr[dim]} Coordinate (R normalized)')
     ax.set_title(f'{coorstr[dim]} Coordinate')
 
 
 # Plot all three cartesion dimensions
-def PlotXYZ(Rollout: object,t_max: int,normalize: bool):
-    fig, axes = plt.subplots(1,3,sharey=True)
-    fig.set_figwidth(19)
+def PlotXYZ(Rollout: object,t_max: int,normalize: bool,axs):
     ML_data_array = np.array([np.concatenate((data.pos[data.mask],data.x[data.mask]),axis=1) for data in Rollout.ML_rollout])
     DEM_data_array = np.array([np.concatenate((data.pos[data.mask],data.x[data.mask]),axis=1) for data in Rollout.GroundTruth])
-    for i, ax in enumerate(axes):   
+    for i, ax in enumerate(axs):   
         PlotAxes(Rollout.BC_rollout,
                 DEM_data_array,
                 ML_data_array[:t_max],
                 i,ax, normalize)
         ax.set_xlim(xmin=0,xmax=t_max)
-    axes[1].legend()
 
 ## Render deformed particles
 from Evaluation import GetAllContactpoints, GetContactPerParticle
@@ -254,31 +251,37 @@ def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles,sharey=False):
 from Evaluation import GetWallStress
 from ML_functions import LearnedSimulator
 
-def PlotStressComparison(Rollout:Type[LearnedSimulator],plot_ml:bool=True):
+def PlotStressComparison(Rollout:Type[LearnedSimulator],dims:list=[0,1,2],plot_ml:bool=True):
 
-    fig, axs = plt.subplots(1,3,figsize=(17,5),sharey=True)
+    fig, axs_temp = plt.subplots(1,len(dims),figsize=(len(dims)*5,5),sharey=True)
+    if len(dims) < 3:
+        axs = [0,0,0]
+        for dim in dims: axs[dim] = axs_temp
+    
     S_wall = GetWallStress(Rollout.GroundTruth,Rollout.BC_rollout)
 
-    for dim in [0,1,2]:
+    for dim in dims:
         axs[dim].plot(S_wall[:,dim]  , label="Groundtruth: Top wall"   , color="tab:blue", alpha=0.3)
         axs[dim].plot(S_wall[:,dim+3], label="Groundtruth: Bottom wall", color="tab:blue", linestyle=(0,(5,7)))
         axs[dim].set_xlabel("Increment",fontweight='bold')
 
     if plot_ml == True:
         S_wall = GetWallStress(Rollout.ML_rollout,Rollout.BC_rollout)
-        for dim in [0,1,2]:
+        for dim in dims:
             axs[dim].plot(S_wall[:,dim]  , label="Model: Top wall"   , color="tab:red", alpha=0.3)
             axs[dim].plot(S_wall[:,dim+3], label="Model: Bottom wall", color="tab:red", linestyle=(0,(5,7)))    
 
-    axs[2].legend()
-    fig.suptitle("Stress on Boundary Walls",
+    axs[-1].legend()
+    fig.suptitle("Stress on top and bottom walls",
                 fontname="Times New Roman",
                 fontweight='bold',
-                fontsize=20)
-    axs[0].set_title("X")
-    axs[1].set_title("Y")
-    axs[2].set_title("Z")
-    axs[0].set_ylabel("Stress (N/mm2)",fontweight='bold')
+                fontsize=12)
+    if len(dims) > 1:
+        dimlabels = {0:'X',1:'Y',2:'Z'}
+        [axs[dim].set_title(dimlabels[dim]) for dim in dims]
+  
+    axs[dim].set_ylabel("Stress (N/mm2)",fontweight='bold')
+    fig.tight_layout()
 
     return fig, axs
 
