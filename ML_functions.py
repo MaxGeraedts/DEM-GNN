@@ -31,8 +31,8 @@ def MaskTestData(dataset_name:str,dataset_type: Literal["train","validate","test
     return test_data
     
 class LearnedSimulator:
-    def __init__(self,model,scale_function,super_tol:int = 6,tol:int = 0, transform=None,timesteps:int=100):
-        self.device = torch.device('cuda' if torch.cuda.is_available()else 'cpu')
+    def __init__(self,model,scale_function,super_tol:int = 6,tol:int = 0, transform=None,timesteps:int=100,device:str='cuda'):
+        self.device = device
         self.model = model.to(self.device)
         self.rescale = scale_function
         self.timesteps = timesteps
