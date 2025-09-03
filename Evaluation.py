@@ -422,20 +422,20 @@ def ParticlesOutsideBoundary(data_list,bc_rollout):
         outside_particles[t] = num_par_out_bounds
     return outside_particles
 
-def EvaluateExperiment(exp_settings,save_name):
+def EvaluateExperiment(exp_settings,save_name:str,batch_size:int):
     par_bool = []
     for i,(exp_args) in enumerate(exp_settings):
         eval = CompareModels(*exp_args,save_name)
         if i == 0:eval_GT=True
         eval.EvaluateEquilibrium(eval_GT)
-        eval.EvaluateMSE(batch_size=16)
+        eval.EvaluateMSE(batch_size)
         par_bool.append(eval.EvaluateParticlesOutsideBoundary())
         if save_name is not None: eval.SaveResults()
         clear_output()
     eval.PrintResults()
     return eval.metric_dict
 
-def GetExperimentSettings(experiment_ident:Literal['N400Embedding','2Sphere','N400msg','N400Error'], test_dataset_name:str,push:str=False):
+def GetExperimentSettings(experiment_ident:Literal['N400Embedding','2Sphere','N400msg','N400Error','N400layer'], test_dataset_name:str,push:str=False,input_list:list=[]):
 
     if experiment_ident == 'N400Embedding':
         model_idents = ['Emb16','Emb32','Emb64','Emb128','Emb256']
@@ -448,7 +448,12 @@ def GetExperimentSettings(experiment_ident:Literal['N400Embedding','2Sphere','N4
         test_dataset_names = [test_dataset_name]*len(model_idents)
 
     if experiment_ident == 'N400msg':
-        model_idents = [f'msg{i}' for i in range(8)]
+        model_idents = [f'msg{i}' for i in input_list]
+        model_dataset_names = ['N400_Mono']*len(model_idents)
+        test_dataset_names = [test_dataset_name]*len(model_idents)
+    
+    if experiment_ident == 'N400layer':
+        model_idents = ['layer1','layer2','Allout','layer4']
         model_dataset_names = ['N400_Mono']*len(model_idents)
         test_dataset_names = [test_dataset_name]*len(model_idents)
 
