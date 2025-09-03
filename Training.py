@@ -11,15 +11,15 @@ train           = True
 dataset_name    = "N400_Mono"
 msg_num         = 5
 
-num_layers      = 1
+num_layers      = 3
 model_ident     = f"layer{num_layers}"
 bundle_size     = 3 
 forward_steps   = 5
 
 emb_dim         = 128
 learning_rate   = 1e-06
-batch_size      = 32
-epochs          = 100
+batch_size      = 64
+epochs          = 250
 pre_transform = T.Compose([T.Cartesian(False),
                            T.Distance(norm=False,cat=True)])
 
