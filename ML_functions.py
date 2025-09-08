@@ -1,10 +1,11 @@
 # Imports
 import torch
-from torch_geometric.data import Batch, Data, InMemoryDataset
+from torch_geometric.data import Batch, Data,HeteroData, InMemoryDataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import MessagePassing, EdgeConv, GCNConv
 from torch_geometric.nn.models import MLP
 import torch_geometric.transforms as T
+from torch_geometric.transforms import BaseTransform
 
 import numpy as np
 import numpy.typing as npt
@@ -15,7 +16,7 @@ from typing import Literal
 
 import json
 
-from Encoding import ToPytorchData, ConstructTopology, TopologyFromPlausibleTopology, GetLength, load
+from Encoding import ToPytorchData, ToHeteroData, ConstructTopology, TopologyFromPlausibleTopology, GetLength, load
 
 # Rollout
 def MaskTestData(dataset_name:str,dataset_type: Literal["train","validate","test"])->tuple[npt.NDArray,npt.NDArray,npt.NDArray]:
@@ -168,7 +169,13 @@ class NormalizeData(T.BaseTransform):
             data.y /= torch.tensor(self.scales["y_std"])
 
         return data
-    
+
+class NormalizeHeteroData(T.BaseTransform):
+    def __init__(self):
+        filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales")
+        with open(f"{filename}.json") as json_file: 
+            self.scales = json.load(json_file)
+
 class NormalizePos(T.BaseTransform):
     r"""Centers and normalizes node positions to the interval :math:`(-1, 1)`
     (functional name: :obj:`normalize_scale`).
@@ -181,6 +188,50 @@ class NormalizePos(T.BaseTransform):
     def forward(self, data: Data) -> Data:
         data.pos *= self.scale_pos
         data.x   *= self.scale_x
+        return data
+    
+class CartesianHetero(BaseTransform):
+    def __init__(self,cat:bool=True):
+        self.cat=cat
+
+    def AddFeatureToEdge(self,data,origin:str,edge_type:str,destination:str):
+        try:
+            temp = data[edge_type].edge_attr
+        except:
+            temp = None
+            
+        (or_idx,dest_idx) = data[edge_type].edge_index
+        cart = data[origin].pos[or_idx]-data[destination].pos[dest_idx]
+
+        if temp is not None and self.cat:
+            data[edge_type].edge_attr = torch.cat([temp, cart.type_as(temp)], dim=-1)
+        else:
+            data[edge_type].edge_attr = cart
+        return data
+
+    def forward(self, data:HeteroData) -> HeteroData:
+        data = self.AddFeatureToEdge(data,'particle','PP_contact','particle')
+        data = self.AddFeatureToEdge(data,'particle','PW_contact','wallpoint')
+        data = self.AddFeatureToEdge(data,'wallpoint','rev_PW_contact','particle')
+        return data
+
+class DistanceHetero(CartesianHetero):
+    def __init__(self, cat:bool = True):
+        super().__init__(cat)
+    def AddFeatureToEdge(self, data, origin:str, edge_type:str, destination:str):
+        try:
+            temp = data[edge_type].edge_attr
+        except:
+            temp = None
+            
+        (or_idx,dest_idx) = data[edge_type].edge_index
+        cart = data[origin].pos[or_idx]-data[destination].pos[dest_idx]
+        dist = torch.linalg.vector_norm(cart,dim=1,keepdim=True)
+
+        if temp is not None and self.cat:
+            data[edge_type].edge_attr = torch.cat([temp, dist.type_as(temp)], dim=-1)
+        else:
+            data[edge_type].edge_attr = dist
         return data
 
 def DataMask(data,test_step: int = 20, val_step: int = 10):
@@ -200,6 +251,52 @@ def DataMask(data,test_step: int = 20, val_step: int = 10):
     val[1::val_step]=1
     train = test+val
     return np.invert(train.astype(bool)), val.astype(bool), test.astype(bool)
+
+class HeteroDEMDataset(InMemoryDataset):
+    def __init__(self,dataset_name, root = None, transform = None, pre_transform = T.Compose([T.ToUndirected(),CartesianHetero(),DistanceHetero()]), force_reload = False, super_tol=6):
+        root: str = os.path.join(os.getcwd(),"Data")
+        self.raw_data_path = os.path.join(root,"raw")
+        self.force_reload = force_reload
+        self.dataset_name = dataset_name
+        self.processed_data_path = os.path.join(root,"processed",dataset_name)
+        self.super_tol=super_tol
+        super().__init__(root, transform, pre_transform,force_reload=force_reload)
+        self.load(self.processed_file_names[0])
+
+    def download(self):
+        pass
+
+    @property 
+    def raw_file_names(self):
+        return[f"{self.dataset_name}_Data.npy",
+               f"{self.dataset_name}_Topology.npy",
+               f"{self.dataset_name}_BC.npy"]
+    
+    @property
+    def processed_file_names(self):
+        processed_file_name = f"{self.dataset_name}_Hetero.pt"
+        return [os.path.join(self.processed_data_path,processed_file_name)]
+
+    def process(self):
+        data_list = []
+        data_agr,bc_agr= [np.load(os.path.join(self.raw_data_path,self.raw_file_names[i]),allow_pickle=True) for i in [0,2]]
+        for sim_data, bc in tqdm(zip(data_agr,bc_agr),total=bc_agr.shape[0]):
+            self.super_topology = ConstructTopology(sim_data[0],bc,self.super_tol)
+            for t in range(len(sim_data)-1):
+                par_data = sim_data[t].copy()
+                bc_t = bc.copy()
+                bc_t[0] = bc[0]+(t+1)*bc[1]
+
+                matlab_topology = TopologyFromPlausibleTopology(self.super_topology,par_data,bc_t,0)
+                displacements = sim_data[t+1][:,:3]-sim_data[t][:,:3]
+                data = ToHeteroData(par_data,matlab_topology,bc_t,displacements)
+                data_list.append(data)
+        
+        print(f"Pre-processing data:")
+        if self.pre_transform is not None:
+            data_list = [self.pre_transform(data) for data in tqdm(data_list)]
+
+        self.save(data_list, self.processed_file_names[0])
 
 class DEM_Dataset(InMemoryDataset):
     def __init__(self,dataset_name: str,

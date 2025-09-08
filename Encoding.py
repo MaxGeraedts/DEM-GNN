@@ -2,7 +2,7 @@ import os
 import numpy as np
 import numpy.typing as npt
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Data, HeteroData
 from tqdm import tqdm
 import torch_geometric.transforms as T
 import scipy.io
@@ -121,7 +121,6 @@ def GetVirtualParticlesCoords(par_step,top_step,bc_step):
     return P_wall, normal_vectors, P_W_top
 
 def BCEncoding(par_step,top_step,bc_step):
-    
     P_wall, normal_vectors,P_W_top = GetVirtualParticlesCoords(par_step,top_step,bc_step)
 
     P_virtual = np.concatenate((P_wall,
@@ -153,10 +152,11 @@ def EncodeNodes(par_t,top_t,bc_t):
     """
     # Pad real particles with zeros and add binary classifier
     P_real = np.concatenate((par_t.copy(),
-                             np.zeros((par_t.shape[0],3)),               # Zeros for normal vector features
-                             np.ones((par_t.shape[0],1))),               # Ones as real particle binary classifier
-                             axis=1)
-    P_virtual, top_new, MatlabTopology = BCEncoding(P_real[:,:3],top_t,bc_t)              # Virtual particle coordinates & Updated topology indexing
+                            np.zeros((par_t.shape[0],3)),               # Zeros for normal vector features
+                            np.ones((par_t.shape[0],1))),               # Ones as real particle binary classifier
+                            axis=1)
+
+    P_virtual, top_new, MatlabTopology = BCEncoding(P_real[:,:3],top_t,bc_t,Homogenize=True)              # Virtual particle coordinates & Updated topology indexing
     par_enc = np.concatenate((P_real,P_virtual),axis=0)
     return par_enc.astype(float),top_new,MatlabTopology
 
@@ -414,6 +414,24 @@ def ToPytorchData(par_data,bc,tol:float=0.0,topology:bool=None, label_data:bool=
             data = center(data)
 
     return data, MatlabTopology, EncodedTopology
+
+def ToHeteroData(par_data,matlab_topology,bc_t,displacements):
+    P_wall, normal_vectors,PW_top = GetVirtualParticlesCoords(par_data,matlab_topology,bc_t) 
+    PP_top = matlab_topology[matlab_topology[:,1]>=0]
+    PW_top[:,1] = np.arange(PW_top.shape[0])
+
+    data = HeteroData()
+    data['particle'].pos = torch.from_numpy(par_data[:,:3])
+    data['wallpoint'].pos = torch.from_numpy(P_wall)
+
+    data['particle'].x = torch.from_numpy(par_data[:,3:])
+    data['wallpoint'].x =  torch.from_numpy(normal_vectors)
+
+    data['particle'].y = torch.from_numpy(displacements)
+
+    data['particle','PP_contact','particle'].edge_index =  torch.from_numpy(PP_top).long().t().contiguous()
+    data['particle','PW_contact','wallpoint'].edge_index =  torch.from_numpy(PW_top).long().t().contiguous()
+    return data
 
 def GetLength(listorarray):
     if type(listorarray) == list:
