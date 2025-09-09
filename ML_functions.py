@@ -176,6 +176,9 @@ class NormalizeHeteroData(T.BaseTransform):
         with open(f"{filename}.json") as json_file: 
             self.scales = json.load(json_file)
 
+    def forward(self,data: HeteroData) -> HeteroData:
+        data['particles'].x /= torch.tensor(self.scales["scale_x"])
+
 class NormalizePos(T.BaseTransform):
     r"""Centers and normalizes node positions to the interval :math:`(-1, 1)`
     (functional name: :obj:`normalize_scale`).
@@ -210,9 +213,8 @@ class CartesianHetero(BaseTransform):
         return data
 
     def forward(self, data:HeteroData) -> HeteroData:
-        data = self.AddFeatureToEdge(data,'particle','PP_contact','particle')
-        data = self.AddFeatureToEdge(data,'particle','PW_contact','wallpoint')
-        data = self.AddFeatureToEdge(data,'wallpoint','rev_PW_contact','particle')
+        for edgetype in data.metadata()[1]:
+            data = self.AddFeatureToEdge(data,*edgetype)
         return data
 
 class DistanceHetero(CartesianHetero):
