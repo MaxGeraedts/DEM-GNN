@@ -162,8 +162,6 @@ class HeteroConvEdge(torch.nn.Module):
                 node_aggr_dict[dst] = node_msg
             else:
                 node_aggr_dict[dst]+=node_msg
-                print(dst)
-                print(node_aggr_dict[dst])
                 node_aggr_dict[dst]/=2
             
             edge_emb_dict[edge_type] = edge_emb
