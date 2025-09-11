@@ -41,10 +41,9 @@ class EdgeConv(MessagePassing):
         return self.edge_mlp(message)
 
 class HeteroDEMGNN(torch.nn.Module):
-    def __init__(self,dataset_name,device,metadata, msg_num,emb_dim,hidden_dim,num_layers):
+    def __init__(self,dataset_name,metadata, msg_num,emb_dim,hidden_dim,num_layers):
         super().__init__()
         self.dataset_name = dataset_name
-        self.device = device
         self.scale_name = f"{dataset_name}_Hetero"
         self.nodetypes = metadata[0]
         self.edgetypes = metadata[1]
@@ -72,7 +71,6 @@ class HeteroDEMGNN(torch.nn.Module):
             self.node_updaters.append(node_updater)
             self.decoders.append(decoder)
         self.double()
-        self.to(self.device)
 
     def EmbedNodes(self,x_dict:dict) -> dict:
         node_emb_dict = {}
@@ -109,7 +107,7 @@ class HeteroDEMGNN(torch.nn.Module):
     def UpdateGeometry(self,data, displacement, normal):
         transform = T.Compose([CartesianHetero(cat= False),
                                DistanceHetero(cat = True),
-                               NormalizeHeteroData(self.dataset_name,self.scale_name,self.device,edge_only=True)])
+                               NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=True)])
         rescale_output = Rescale(self.dataset_name,self.scale_name)
 
         displacement = rescale_output(displacement,self.device)
@@ -195,22 +193,22 @@ class DistanceHetero(CartesianHetero):
         return data
 
 class NormalizeHeteroData(NormalizeData):
-    def __init__(self, dataset_name:str, scale_name:str,device:str, edge_only:bool):
+    def __init__(self, dataset_name:str, scale_name:str, edge_only:bool):
         self.edge_only = edge_only
-        self.device = device
         super().__init__(dataset_name, scale_name) 
     
     def forward(self, data: HeteroData) -> HeteroData:
+        device = data.device
         if self.edge_only == False:
-            data['particle'].x /= torch.tensor(self.scales["scale_x"]).to(self.device)
+            data['particle'].x /= torch.tensor(self.scales["scale_x"]).to(device)
 
         for edgetype in data.metadata()[1]:
-            data[edgetype].edge_attr -= torch.tensor(self.scales["edge_mean"]).to(self.device)
-            data[edgetype].edge_attr /= torch.tensor(self.scales["edge_std"]).to(self.device)
+            data[edgetype].edge_attr -= torch.tensor(self.scales["edge_mean"]).to(device)
+            data[edgetype].edge_attr /= torch.tensor(self.scales["edge_std"]).to(device)
 
         if data['particle'].y is not None and self.edge_only == False:
-            data['particle'].y -= torch.tensor(self.scales["y_mean"]).to(self.device)
-            data['particle'].y /= torch.tensor(self.scales["y_std"]).to(self.device)
+            data['particle'].y -= torch.tensor(self.scales["y_mean"]).to(device)
+            data['particle'].y /= torch.tensor(self.scales["y_std"]).to(device)
 
         return data
 

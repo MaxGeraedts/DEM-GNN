@@ -4,20 +4,19 @@ import torch
 
 dataset_name    = 'N400_Mono'
 model_ident     = 'Hetero'
-batch_size      = 1
+batch_size      = 64
 lr              = 0.01
 epochs          = 100
 
 msg_num = 3
 emb_dim = 64
-num_layers = 3
+num_layers = 2
 
 dataset_train, dataset_val, dataset_test = [HeteroDEMDataset(dataset_name,dataset_type,force_reload=False) 
                                             for dataset_type in ['train', 'validate','test']]
 
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model,msg = GetHeteroModel(dataset_name,model_ident,device,dataset_train[0].metadata(),
+model,msg = GetHeteroModel(dataset_name,model_ident,dataset_train[0].metadata(),
                            msg_num,emb_dim,num_layers)
 print(msg)
 SaveModelInfo(model,dataset_name,model_ident,hetero=True)
