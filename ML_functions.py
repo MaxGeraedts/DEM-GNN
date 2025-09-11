@@ -114,16 +114,28 @@ class LearnedSimulator:
         self.ML_rollout = self.MLRollout(show_tqdm)
 
 # Dataset
-def GetScales(dataset,dataset_name:str,scale_name:str):
-    scales = {"scale_x":    dataset.x.max(dim=0,keepdim=False)[0].tolist(),
-              "edge_mean":  dataset.edge_attr.mean(dim=0).tolist(),
-              "edge_std":   dataset.edge_attr.std(dim=0).tolist(),
-              "y_mean":     dataset.y.mean(dim=0).tolist(),
-              "y_std":      dataset.y.std(dim=0).tolist()}
+def GetScales(dataset_batch,dataset_name:str,scale_name:str,hetero:bool=False,save:bool=True):
+    if hetero == True:
+        edgetypes = dataset_batch.metadata()[1]
+        edge_attr_list = [dataset_batch[edgetype].edge_attr for edgetype in edgetypes]
+        edge_attrs = torch.cat(edge_attr_list)
+        x = dataset_batch['particle'].x
+        y = dataset_batch['particle'].y
+    else:
+        edge_attrs = dataset_batch.edge_attr
+        x = dataset_batch.x
+        y = dataset_batch.y
     
-    filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales.json")
-    with open(filename,'w') as f: 
-        json.dump(scales,f)
+    scales = {"scale_x":    x.max(dim=0,keepdim=False)[0].tolist(),
+              "edge_mean":  edge_attrs.mean(dim=0).tolist(),
+              "edge_std":   edge_attrs.std(dim=0).tolist(),
+              "y_mean":     y.mean(dim=0).tolist(),
+              "y_std":      y.std(dim=0).tolist()}
+    
+    if save == True:
+        filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales.json")
+        with open(filename,'w') as f: 
+            json.dump(scales,f)
     return scales
 
 class Rescale:
@@ -170,15 +182,6 @@ class NormalizeData(T.BaseTransform):
 
         return data
 
-class NormalizeHeteroData(T.BaseTransform):
-    def __init__(self):
-        filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales")
-        with open(f"{filename}.json") as json_file: 
-            self.scales = json.load(json_file)
-
-    def forward(self,data: HeteroData) -> HeteroData:
-        data['particles'].x /= torch.tensor(self.scales["scale_x"])
-
 class NormalizePos(T.BaseTransform):
     r"""Centers and normalizes node positions to the interval :math:`(-1, 1)`
     (functional name: :obj:`normalize_scale`).
@@ -191,49 +194,6 @@ class NormalizePos(T.BaseTransform):
     def forward(self, data: Data) -> Data:
         data.pos *= self.scale_pos
         data.x   *= self.scale_x
-        return data
-    
-class CartesianHetero(BaseTransform):
-    def __init__(self,cat:bool=True):
-        self.cat=cat
-
-    def AddFeatureToEdge(self,data,origin:str,edge_type:str,destination:str):
-        try:
-            temp = data[edge_type].edge_attr
-        except:
-            temp = None
-            
-        (or_idx,dest_idx) = data[edge_type].edge_index
-        cart = data[origin].pos[or_idx]-data[destination].pos[dest_idx]
-
-        if temp is not None and self.cat:
-            data[edge_type].edge_attr = torch.cat([temp, cart.type_as(temp)], dim=-1)
-        else:
-            data[edge_type].edge_attr = cart
-        return data
-
-    def forward(self, data:HeteroData) -> HeteroData:
-        for edgetype in data.metadata()[1]:
-            data = self.AddFeatureToEdge(data,*edgetype)
-        return data
-
-class DistanceHetero(CartesianHetero):
-    def __init__(self, cat:bool = True):
-        super().__init__(cat)
-    def AddFeatureToEdge(self, data, origin:str, edge_type:str, destination:str):
-        try:
-            temp = data[edge_type].edge_attr
-        except:
-            temp = None
-            
-        (or_idx,dest_idx) = data[edge_type].edge_index
-        cart = data[origin].pos[or_idx]-data[destination].pos[dest_idx]
-        dist = torch.linalg.vector_norm(cart,dim=1,keepdim=True)
-
-        if temp is not None and self.cat:
-            data[edge_type].edge_attr = torch.cat([temp, dist.type_as(temp)], dim=-1)
-        else:
-            data[edge_type].edge_attr = dist
         return data
 
 def DataMask(data,test_step: int = 20, val_step: int = 10):
@@ -253,52 +213,6 @@ def DataMask(data,test_step: int = 20, val_step: int = 10):
     val[1::val_step]=1
     train = test+val
     return np.invert(train.astype(bool)), val.astype(bool), test.astype(bool)
-
-class HeteroDEMDataset(InMemoryDataset):
-    def __init__(self,dataset_name, root = None, transform = None, pre_transform = T.Compose([T.ToUndirected(),CartesianHetero(),DistanceHetero()]), force_reload = False, super_tol=6):
-        root: str = os.path.join(os.getcwd(),"Data")
-        self.raw_data_path = os.path.join(root,"raw")
-        self.force_reload = force_reload
-        self.dataset_name = dataset_name
-        self.processed_data_path = os.path.join(root,"processed",dataset_name)
-        self.super_tol=super_tol
-        super().__init__(root, transform, pre_transform,force_reload=force_reload)
-        self.load(self.processed_file_names[0])
-
-    def download(self):
-        pass
-
-    @property 
-    def raw_file_names(self):
-        return[f"{self.dataset_name}_Data.npy",
-               f"{self.dataset_name}_Topology.npy",
-               f"{self.dataset_name}_BC.npy"]
-    
-    @property
-    def processed_file_names(self):
-        processed_file_name = f"{self.dataset_name}_Hetero.pt"
-        return [os.path.join(self.processed_data_path,processed_file_name)]
-
-    def process(self):
-        data_list = []
-        data_agr,bc_agr= [np.load(os.path.join(self.raw_data_path,self.raw_file_names[i]),allow_pickle=True) for i in [0,2]]
-        for sim_data, bc in tqdm(zip(data_agr,bc_agr),total=bc_agr.shape[0]):
-            self.super_topology = ConstructTopology(sim_data[0],bc,self.super_tol)
-            for t in range(len(sim_data)-1):
-                par_data = sim_data[t].copy()
-                bc_t = bc.copy()
-                bc_t[0] = bc[0]+(t+1)*bc[1]
-
-                matlab_topology = TopologyFromPlausibleTopology(self.super_topology,par_data,bc_t,0)
-                displacements = sim_data[t+1][:,:3]-sim_data[t][:,:3]
-                data = ToHeteroData(par_data,matlab_topology,bc_t,displacements)
-                data_list.append(data)
-        
-        print(f"Pre-processing data:")
-        if self.pre_transform is not None:
-            data_list = [self.pre_transform(data) for data in tqdm(data_list)]
-
-        self.save(data_list, self.processed_file_names[0])
 
 class DEM_Dataset(InMemoryDataset):
     def __init__(self,dataset_name: str,
@@ -569,7 +483,7 @@ def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4
                                    num_layers=num_layers)
     return model, msg
 
-def SaveModelInfo(model,dataset_name:str,model_ident:str):
+def SaveModelInfo(model,dataset_name:str,model_ident:str,hetero:bool=False):
     """Saves Model parameters to a dictionary JSON file
 
     Args:
@@ -577,14 +491,18 @@ def SaveModelInfo(model,dataset_name:str,model_ident:str):
         dataset_name (string): Name of the dataset
         model_ident (string): Identifier for the model
     """
+
     ModelInfo = {"msg_num":model.msg_num,
-                 "emb_dim":model.emb_dim,
-                 "hidden_dim":model.hidden_dim,
-                 "node_dim":model.node_dim,
-                 "edge_dim":model.edge_dim,
-                 "out_dim": model.out_dim,
-                 "num_layers":model.num_layers,
-                 "bundle_size":model.bundle_size}
+                "emb_dim":model.emb_dim,
+                "hidden_dim":model.hidden_dim,
+                "num_layers":model.num_layers}
+    
+    if hetero == False:
+        ModelInfo["node_dim"] = model.node_dim
+        ModelInfo["edge_dim"] = model.edge_dim
+        ModelInfo["out_dim"] = model.out_dim
+        ModelInfo["bundle_size"] = model.bundle_size
+
     filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{model_ident}_ModelInfo.json")
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)
