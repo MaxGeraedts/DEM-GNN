@@ -2,9 +2,9 @@ from HeteroML import HeteroDEMDataset, HeteroTrainer, HeteroDEMGNN, GetHeteroMod
 from ML_functions import SaveTrainingInfo, SaveModelInfo
 import torch
 
-dataset_name    = '2Sphere'
+dataset_name    = 'N400_Mono'
 model_ident     = 'Hetero'
-batch_size      = 128
+batch_size      = 1
 lr              = 0.01
 epochs          = 100
 
