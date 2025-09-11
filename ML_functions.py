@@ -148,7 +148,8 @@ class Rescale:
         self.y_mean = self.scales["y_mean"]
         self.y_std = self.scales["y_std"]
 
-    def __call__(self, output,device):
+    def __call__(self, output):
+        device = output.device
         """Rescale output based on training standardization statistics
 
         Args:

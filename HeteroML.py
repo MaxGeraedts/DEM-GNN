@@ -110,7 +110,7 @@ class HeteroDEMGNN(torch.nn.Module):
                                NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=True)])
         rescale_output = Rescale(self.dataset_name,self.scale_name)
 
-        displacement = rescale_output(displacement,self.device)
+        displacement = rescale_output(displacement)
         data.pos_dict['particle']+=displacement
         data = self.UpdateWallpointPos(data,displacement,normal)
         data = transform(data)
@@ -138,6 +138,7 @@ class HeteroTrainer(Trainer):
         super().__init__(model, batch_size, lr, epochs, dataset_name, model_ident)
 
     def loss_batch(self, batch, opt=None):
+        batch.device = self.device
         out = self.model(batch)
         #print(out)
         #print(batch['particle'].y)
@@ -396,7 +397,7 @@ class HeteroConvEdge(torch.nn.Module):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(num_relations={len(self.convs)})'
     
-def GetHeteroModel(dataset_name,model_ident,device,metadata,msg_num=3,emb_dim=64,num_layers=2):
+def GetHeteroModel(dataset_name,model_ident,metadata,msg_num=3,emb_dim=64,num_layers=2):
     model_name = f"{dataset_name}_{model_ident}"
     try: 
         if model_name[-4:] == "Push":
@@ -406,7 +407,7 @@ def GetHeteroModel(dataset_name,model_ident,device,metadata,msg_num=3,emb_dim=64
             
         with open(f"{model_path}_ModelInfo.json") as json_file: settings = json.load(json_file)
 
-        model = HeteroDEMGNN(dataset_name,device,metadata,
+        model = HeteroDEMGNN(dataset_name,metadata,
                              msg_num=settings["msg_num"],
                              emb_dim=settings["emb_dim"],
                              hidden_dim=settings["hidden_dim"],
@@ -417,5 +418,5 @@ def GetHeteroModel(dataset_name,model_ident,device,metadata,msg_num=3,emb_dim=64
     except: 
         msg = "No Trained model"
         print(msg)
-        model = HeteroDEMGNN(dataset_name,device,metadata,msg_num,emb_dim,emb_dim,num_layers)
+        model = HeteroDEMGNN(dataset_name,metadata,msg_num,emb_dim,emb_dim,num_layers)
     return model, msg
