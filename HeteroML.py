@@ -199,7 +199,7 @@ class NormalizeHeteroData(NormalizeData):
         super().__init__(dataset_name, scale_name) 
     
     def forward(self, data: HeteroData) -> HeteroData:
-        device = data.device
+        device = data[edgetype].edge_attr.device
         if self.edge_only == False:
             data['particle'].x /= torch.tensor(self.scales["scale_x"]).to(device)
 
