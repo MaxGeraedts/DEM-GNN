@@ -422,13 +422,27 @@ class Trainer:
         if loss_list is not None: loss_list.append(mean_loss)
         return mean_loss,loss_list
     
-    def save_loss(self,train_loss,val_loss):
+    def save_loss(self,train_loss,val_loss:None):
         np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss"),train_loss)
-        np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss"),val_loss)
+        if val_loss is not None:
+            np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss"),val_loss)
 
-    def train_loop(self,dataset_train,dataset_val):
+    def save_best_model(self,loss,best_model_loss):
+        if loss < best_model_loss:
+            best_model_loss = loss
+            torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name))
+        return best_model_loss
+
+    def print_results(self,epoch,mean_train_loss,mean_val_loss):
+        if mean_val_loss is not None:
+            print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.10f}  |  Mean Validation Loss: {mean_val_loss:.10f}",flush=True)
+        else:
+            print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.10f}",flush=True)
+
+    def train_loop(self,dataset_train,dataset_val=None):
         self.train_dl = self.make_data_loader(dataset_train, shuffle=True)
-        self.val_dl = self.make_data_loader(dataset_val, shuffle=False)
+        if dataset_val is not None:
+            self.val_dl = self.make_data_loader(dataset_val, shuffle=False)
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
 
         train_loss, val_loss = [], []
@@ -438,17 +452,18 @@ class Trainer:
             mean_train_loss, train_loss = self.batch_loop(self.train_dl,train_loss,self.optimizer)
 
             self.model.eval()
-            with torch.inference_mode():
-                mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss)
+            if dataset_val is not None:
+                with torch.inference_mode(): mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss)
+                best_model_loss = self.save_best_model(mean_val_loss,best_model_loss)
 
-            if mean_val_loss < best_model_loss:
-                best_model_loss = mean_val_loss
-                torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name))
+            if dataset_val is None:
+                best_model_loss = self.save_best_model(mean_train_loss,best_model_loss)
+                mean_val_loss = None
             
             if epoch % 25 == 0: 
                 self.save_loss(train_loss,val_loss)
 
-            print(f"\nEpoch: {epoch:03d}  |  Mean Train Loss: {mean_train_loss:.10f}  |  Mean Validation Loss: {mean_val_loss:.10f}",flush=True)
+            self.print_results(epoch,mean_train_loss,mean_val_loss)
 
         self.save_loss(train_loss,val_loss)
 
@@ -492,33 +507,25 @@ def SaveModelInfo(model,dataset_name:str,model_ident:str,hetero:bool=False):
         dataset_name (string): Name of the dataset
         model_ident (string): Identifier for the model
     """
+    model_attr = ['msg_num','emb_dim','hidden_dim','num_layers','node_dim','edge_dim','out_dim','bundle_size']
+    ModelInfo = {}
 
-    ModelInfo = {"msg_num":model.msg_num,
-                "emb_dim":model.emb_dim,
-                "hidden_dim":model.hidden_dim,
-                "num_layers":model.num_layers}
-    
-    if hetero == False:
-        ModelInfo["node_dim"] = model.node_dim
-        ModelInfo["edge_dim"] = model.edge_dim
-        ModelInfo["out_dim"] = model.out_dim
-        ModelInfo["bundle_size"] = model.bundle_size
+    for attr in model_attr:
+        if hasattr(model,attr): ModelInfo[attr] = getattr(model,attr)
 
     filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{model_ident}_ModelInfo.json")
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)
 
 def SaveTrainingInfo(dataset,trainer):
-    TrainingInfo = {"super_tol":dataset.super_tol,
-                    "tol":dataset.tol,
-                    "noise_factor":dataset.noise_factor,
-                    "batch_size":trainer.batch_size,
-                    "learning_rate":trainer.lr,
-                    "bundle_size":dataset.bundle_size,
-                    "push_forward_step_max":dataset.forward_step_max}
-    
-    if dataset.model is not None: 
-        TrainingInfo["model_name"] = trainer.model_name
+    TrainingInfo = {}
+    dataset_attr = ["super_tol","tol","noise_factor","batch_size","learning_rate","bundle_size","push_forward_step_max"]
+    trainer_attr = ["model_name"]
+
+    for attr in dataset_attr:
+        if hasattr(dataset,attr): TrainingInfo[attr] = getattr(dataset,attr)
+    for attr in trainer_attr:
+        if hasattr(trainer,attr): TrainingInfo[attr] = getattr(trainer,attr)
 
     filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,f"{trainer.model_name}_TrainingInfo.json")
     with open(filename,'w') as f: 
