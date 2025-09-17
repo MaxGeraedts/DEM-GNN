@@ -112,7 +112,7 @@ class HeteroDEMGNN(torch.nn.Module):
 
         displacement = rescale_output(displacement)
         data.pos_dict['particle']+=displacement
-        data = self.UpdateWallpointPos(data,displacement,normal)
+        #data = self.UpdateWallpointPos(data,displacement,normal)
         data = transform(data)
 
         return data
@@ -124,6 +124,7 @@ class HeteroDEMGNN(torch.nn.Module):
         data.edge_emb_dict = self.EmbedEdges(data.edge_attr_dict)
 
         displacement = 0
+        disp_list = []
         for conv,node_updater,decoder in zip(self.convs,self.node_updaters,self.decoders):
             data.edge_inp_dict = self.MergeEdgeDicts(data.edge_ref_dict,data.edge_attr_dict,data.edge_emb_dict)
             data.node_aggr_dict, data.edge_emb_dict = conv(data.x_dict,data.edge_inp_dict,data.edge_index_dict)
@@ -131,7 +132,8 @@ class HeteroDEMGNN(torch.nn.Module):
             displacement_k = decoder(data.x_dict['particle'])
             data = self.UpdateGeometry(data,displacement_k,normal)
             displacement += displacement_k
-        return displacement
+            disp_list.append(displacement_k)
+        return displacement, disp_list
 
 class HeteroTrainer(Trainer):
     def __init__(self, model, batch_size, lr, epochs, dataset_name, model_ident):
@@ -139,7 +141,7 @@ class HeteroTrainer(Trainer):
 
     def loss_batch(self, batch, opt=None):
         batch.device = self.device
-        out = self.model(batch)
+        out = self.model(batch)[0]
         #print(out)
         #print(batch['particle'].y)
         loss =self.loss_fn(out, batch['particle'].y)
@@ -397,15 +399,18 @@ class HeteroConvEdge(torch.nn.Module):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(num_relations={len(self.convs)})'
     
-def GetHeteroModel(dataset_name,model_ident,metadata,msg_num=3,emb_dim=64,num_layers=2):
+def GetHeteroModel(dataset_name,model_ident,metadata,msg_num=3,emb_dim=64,num_layers=2,retrain:bool=False):
     model_name = f"{dataset_name}_{model_ident}"
-    try: 
-        if model_name[-4:] == "Push":
-            model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name[:-5]}")
-        else:
-            model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}")
-            
-        with open(f"{model_path}_ModelInfo.json") as json_file: settings = json.load(json_file)
+    
+    if model_name[-4:] == "Push":
+        model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name[:-5]}")
+    else:
+        model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}")
+    
+    model_info_path = f"{model_path}_ModelInfo.json"
+
+    if os.path.exists(model_path) and os.path.exists(model_info_path) and retrain==False:   
+        with open(model_info_path) as json_file: settings = json.load(json_file)
 
         model = HeteroDEMGNN(dataset_name,metadata,
                              msg_num=settings["msg_num"],
@@ -415,8 +420,9 @@ def GetHeteroModel(dataset_name,model_ident,metadata,msg_num=3,emb_dim=64,num_la
         model.load_state_dict(torch.load(model_path))
         msg = "Loaded model"
         print(f"{msg} {model_name}")
-    except: 
+    else: 
         msg = "No Trained model"
         print(msg)
         model = HeteroDEMGNN(dataset_name,metadata,msg_num,emb_dim,emb_dim,num_layers)
+
     return model, msg

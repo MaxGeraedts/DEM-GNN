@@ -415,7 +415,7 @@ def ToPytorchData(par_data,bc,tol:float=0.0,topology:bool=None, label_data:bool=
 
     return data, MatlabTopology, EncodedTopology
 
-def ToHeteroData(par_data,matlab_topology,bc_t,displacements):
+def ToHeteroData(par_data,matlab_topology,bc_t,displacements=None):
     P_wall, normal_vectors,PW_top = GetVirtualParticlesCoords(par_data,matlab_topology,bc_t) 
     PP_top = matlab_topology[matlab_topology[:,1]>=0]
     PW_top[:,1] = np.arange(PW_top.shape[0])
@@ -427,7 +427,8 @@ def ToHeteroData(par_data,matlab_topology,bc_t,displacements):
     data['particle'].x = torch.from_numpy(par_data[:,3:])
     data['wallpoint'].x =  torch.from_numpy(normal_vectors)
 
-    data['particle'].y = torch.from_numpy(displacements)
+    if displacements is not None:
+        data['particle'].y = torch.from_numpy(displacements)
 
     data['particle','PP_contact','particle'].edge_index =  torch.from_numpy(PP_top).long().t().contiguous()
     data['particle','PW_contact','wallpoint'].edge_index =  torch.from_numpy(PW_top).long().t().contiguous()
