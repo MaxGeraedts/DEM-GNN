@@ -16,8 +16,36 @@ from torch_geometric.utils.hetero import check_add_self_loops
 from torch_geometric.data import Batch, Data,HeteroData, InMemoryDataset
 import torch_geometric.transforms as T
 
-from Encoding import ToHeteroData,ConstructTopology,TopologyFromPlausibleTopology
-from ML_functions import Trainer, NormalizeData,Rescale, DataMask, GetScales
+from Encoding import ToHeteroData,ConstructTopology,TopologyFromPlausibleTopology, ToPytorchData
+from ML_functions import LearnedSimulator,Trainer, NormalizeData,Rescale, DataMask, GetScales
+
+class LearnedSimulatorHetero(LearnedSimulator):
+    def __init__(self, model, scale_function, super_tol = 6, tol = 0, transform=None, timesteps = 100, device = 'cuda'):
+        super().__init__(model, scale_function, super_tol, tol, transform, timesteps, device)
+
+    def Rollout_Step(self, par_inp, BC, MatlabTopology, ML_Rollout = None):
+        # Convert raw data to PyTorch Graphdata
+        input_data = ToHeteroData(par_inp,MatlabTopology,BC)
+        if self.transform is not None: input_data = self.transform(input_data)
+        input_data.to(self.device)
+
+        # Run ML Model
+        output = self.model(input_data)[0]
+        output = self.rescale(output).cpu()
+        output = np.stack(np.split(output,output.shape[1]/3,axis=1))
+        # With displacement vectors update particle positions and topology
+        for displacement in output:
+            par_inp[:,:3] = par_inp[:,:3]+displacement
+            MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
+
+            if ML_Rollout is not None:
+                data,MatlabTopology = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[:2]
+                data.MatlabTopology = MatlabTopology
+                ML_Rollout.append(data)
+
+            BC[0] += BC[1]
+
+        return par_inp, BC, MatlabTopology
 
 class EdgeConv(MessagePassing):
     def __init__(self,emb_dim,hidden_dim,num_layers, aggr = 'mean', ):
@@ -209,7 +237,7 @@ class NormalizeHeteroData(NormalizeData):
             data[edgetype].edge_attr -= torch.tensor(self.scales["edge_mean"]).to(device)
             data[edgetype].edge_attr /= torch.tensor(self.scales["edge_std"]).to(device)
 
-        if data['particle'].y is not None and self.edge_only == False:
+        if hasattr(data['particle'],'y') and self.edge_only == False:
             data['particle'].y -= torch.tensor(self.scales["y_mean"]).to(device)
             data['particle'].y /= torch.tensor(self.scales["y_std"]).to(device)
 
@@ -399,8 +427,14 @@ class HeteroConvEdge(torch.nn.Module):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(num_relations={len(self.convs)})'
     
-def GetHeteroModel(dataset_name,model_ident,metadata,msg_num=3,emb_dim=64,num_layers=2,retrain:bool=False):
+def GetHeteroModel(dataset_name,model_ident,metadata=None,
+                   msg_num=3,emb_dim=64,num_layers=2,retrain:bool=False):
     model_name = f"{dataset_name}_{model_ident}"
+
+    metadata = (['particle', 'wallpoint'],
+                [('particle', 'PP_contact', 'particle'),
+                ('particle', 'PW_contact', 'wallpoint'),
+                ('wallpoint', 'rev_PW_contact', 'particle')])
     
     if model_name[-4:] == "Push":
         model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name[:-5]}")

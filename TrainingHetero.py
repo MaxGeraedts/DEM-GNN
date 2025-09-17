@@ -2,16 +2,16 @@ from HeteroML import HeteroDEMDataset, HeteroTrainer, HeteroDEMGNN, GetHeteroMod
 from ML_functions import SaveTrainingInfo, SaveModelInfo
 import torch
 
-dataset_name    = 'N400_mono'
-model_ident     = 'Overfit'
+dataset_name    = 'N400_Mono'
+model_ident     = 'Overfit2'
 retrain         = True
 
 batch_size      = 1
 lr              = 0.01
 epochs          = 1000
 
-msg_num = 5
-emb_dim = 128
+msg_num = 3
+emb_dim = 64
 num_layers = 2
 
 dataset_train, dataset_val, dataset_test = [HeteroDEMDataset(dataset_name,dataset_type,force_reload=False) 

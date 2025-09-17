@@ -156,7 +156,7 @@ def EncodeNodes(par_t,top_t,bc_t):
                             np.ones((par_t.shape[0],1))),               # Ones as real particle binary classifier
                             axis=1)
 
-    P_virtual, top_new, MatlabTopology = BCEncoding(P_real[:,:3],top_t,bc_t,Homogenize=True)              # Virtual particle coordinates & Updated topology indexing
+    P_virtual, top_new, MatlabTopology = BCEncoding(P_real[:,:3],top_t,bc_t)              # Virtual particle coordinates & Updated topology indexing
     par_enc = np.concatenate((P_real,P_virtual),axis=0)
     return par_enc.astype(float),top_new,MatlabTopology
 
