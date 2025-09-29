@@ -4,19 +4,20 @@ import torch
 
 dataset_name    = 'N400_Mono'
 model_ident     = 'Overfit2'
-retrain         = True
+retrain         = False
 
 batch_size      = 1
 lr              = 0.01
-epochs          = 1000
+epochs          = 500
 
-msg_num = 3
+msg_num = 5
 emb_dim = 64
-num_layers = 2
+num_layers = 3
 
 dataset_train, dataset_val, dataset_test = [HeteroDEMDataset(dataset_name,dataset_type,force_reload=False) 
                                             for dataset_type in ['train', 'validate','test']]
-subset_train = torch.utils.data.Subset(dataset_train,[0])
+subset_train = torch.utils.data.Subset(dataset_train,[i for i in range(99)])
+print(len(subset_train))
 
 model,msg = GetHeteroModel(dataset_name,model_ident,dataset_train[0].metadata(),
                            msg_num,emb_dim,num_layers,retrain)

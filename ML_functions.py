@@ -69,11 +69,12 @@ class LearnedSimulator:
 
         # Run ML Model
         output = self.model(input_data)
-        output = self.rescale(output,self.device).cpu()
+        output = self.rescale(output).cpu()
         output = np.stack(np.split(output,output.shape[1]/3,axis=1))
         # With displacement vectors update particle positions and topology
         for displacement in output:
             par_inp[:,:3] = par_inp[:,:3]+displacement[input_data.mask]
+            print(par_inp)
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
 
             if ML_Rollout is not None:

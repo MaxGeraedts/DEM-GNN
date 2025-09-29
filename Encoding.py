@@ -416,6 +416,7 @@ def ToPytorchData(par_data,bc,tol:float=0.0,topology:bool=None, label_data:bool=
     return data, MatlabTopology, EncodedTopology
 
 def ToHeteroData(par_data,matlab_topology,bc_t,displacements=None):
+    par_data = par_data.copy()
     P_wall, normal_vectors,PW_top = GetVirtualParticlesCoords(par_data,matlab_topology,bc_t) 
     PP_top = matlab_topology[matlab_topology[:,1]>=0]
     PW_top[:,1] = np.arange(PW_top.shape[0])

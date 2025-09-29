@@ -37,7 +37,6 @@ class LearnedSimulatorHetero(LearnedSimulator):
         for displacement in output:
             par_inp[:,:3] = par_inp[:,:3]+displacement
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
-
             if ML_Rollout is not None:
                 data,MatlabTopology = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[:2]
                 data.MatlabTopology = MatlabTopology
