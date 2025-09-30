@@ -463,7 +463,7 @@ class Trainer:
             self.val_dl = self.make_data_loader(dataset_val, shuffle=False)
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
 
-        train_loss, val_loss = self.load_loss
+        train_loss, val_loss = self.load_loss()
         best_model_loss = np.inf
         for epoch in tqdm(range(self.epochs)):
             self.model.train()  
