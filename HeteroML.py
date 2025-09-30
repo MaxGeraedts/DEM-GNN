@@ -37,6 +37,7 @@ class LearnedSimulatorHetero(LearnedSimulator):
         for displacement in output:
             par_inp[:,:3] = par_inp[:,:3]+displacement
             MatlabTopology = TopologyFromPlausibleTopology(self.super_topology,par_inp,BC,self.tol)
+
             if ML_Rollout is not None:
                 data,MatlabTopology = ToPytorchData(par_inp,BC,self.tol,MatlabTopology)[:2]
                 data.MatlabTopology = MatlabTopology
@@ -247,7 +248,12 @@ class HeteroDEMDataset(InMemoryDataset):
                  dataset_type: Literal["train","validate","test"],
                  root = None, transform = None, 
                  pre_transform = T.Compose([T.ToUndirected(),CartesianHetero(),DistanceHetero()]), 
-                 force_reload = False, super_tol=6):
+                 force_reload = False, super_tol=6,
+                 push_forward_step_max: int = 0,
+                 bundle_size: int = 1,
+                 model = None,
+                 model_ident:str=None):
+        
         root: str = os.path.join(os.getcwd(),"Data")
         self.dataset_type = dataset_type
         self.raw_data_path = os.path.join(root,"raw")
@@ -256,6 +262,11 @@ class HeteroDEMDataset(InMemoryDataset):
         self.scale_name = f"{dataset_name}_Hetero"
         self.processed_data_path = os.path.join(root,"processed",dataset_name)
         self.super_tol=super_tol
+        self.forward_step_max = push_forward_step_max
+        self.bundle_size = bundle_size
+        self.model = model
+        self.model_ident = model_ident
+
         super().__init__(root, transform, pre_transform,force_reload=force_reload)
         self.load(self.processed_file_names[0])
 
@@ -270,7 +281,10 @@ class HeteroDEMDataset(InMemoryDataset):
     
     @property
     def processed_file_names(self):
-        processed_file_name = f"{self.dataset_name}_Hetero_{self.dataset_type}.pt"
+        if self.forward_step_max == 0:
+            processed_file_name = f"{self.dataset_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.dataset_type}.pt"
+        else:
+            processed_file_name = f"{self.dataset_name}_bund{self.bundle_size}__push{self.forward_step_max}_{self.model_ident}_{self.dataset_type}.pt"
         return [os.path.join(self.processed_data_path,processed_file_name)]
 
     def LoadSimTop(self,i):
@@ -279,18 +293,42 @@ class HeteroDEMDataset(InMemoryDataset):
         mask =  DataMask(data)[type_idx]
         return data[mask]
 
+    def SliceAndReshapeData(self,par_data,t,push_forward_steps):
+        pos_slice = par_data[t+push_forward_steps*self.bundle_size:t+(push_forward_steps+1)*self.bundle_size,:,:3]
+        pos_slice_2D = np.concatenate([pos for pos in pos_slice],axis=1)
+        return pos_slice_2D
+    
     def process(self):
         data_list = []
         data_agr,bc_agr= [self.LoadSimTop(i) for i in [0,2]]
+
+        if self.forward_step_max > 0:
+            transform = T.Compose([T.ToUndirected(),CartesianHetero(False),DistanceHetero(),NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=False)])
+            Simulation = LearnedSimulatorHetero(self.model,scale_function=Rescale(self.dataset_name,self.scale_name),transform=transform)
+            self.Rollout_step = Simulation.Rollout_Step
+
         for sim_data, bc in tqdm(zip(data_agr,bc_agr),total=bc_agr.shape[0]):
             self.super_topology = ConstructTopology(sim_data[0],bc,self.super_tol)
-            for t in range(len(sim_data)-1):
+            if self.forward_step_max > 0: Simulation.super_topology = self.super_topology
+            for t in range(len(sim_data)-1*self.bundle_size*(self.forward_step_max+1)):
                 par_data = sim_data[t].copy()
                 bc_t = bc.copy()
                 bc_t[0] = bc[0]+(t+1)*bc[1]
 
+                push_forward_steps = np.random.randint(0,self.forward_step_max+1)
                 matlab_topology = TopologyFromPlausibleTopology(self.super_topology,par_data,bc_t,0)
-                displacements = sim_data[t+1][:,:3]-sim_data[t][:,:3]
+
+                with torch.inference_mode():
+                    for forward_step in range(push_forward_steps):
+                        par_data, bc_t, matlab_topology = self.Rollout_step(par_data, bc_t, matlab_topology)
+                
+                bc_t[0] += bc_t[1]
+                
+                pos_slice        = self.SliceAndReshapeData(sim_data,t  ,push_forward_steps)
+                pos_target_slice = self.SliceAndReshapeData(sim_data,t+1,push_forward_steps)
+                pos_slice[:,:3] = par_data[:,:3]
+                displacements = pos_target_slice-pos_slice
+
                 data = ToHeteroData(par_data,matlab_topology,bc_t,displacements)
                 data_list.append(data)
         
