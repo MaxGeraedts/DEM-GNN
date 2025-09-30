@@ -3,12 +3,12 @@ from ML_functions import SaveTrainingInfo, SaveModelInfo
 import torch
 
 dataset_name    = 'N400_Mono'
-model_ident     = 'Overfit2'
+model_ident     = 'Simfit'
 retrain         = False
 
 batch_size      = 1
-lr              = 0.01
-epochs          = 500
+lr              = 0.1
+epochs          = 2000
 
 msg_num = 5
 emb_dim = 64
