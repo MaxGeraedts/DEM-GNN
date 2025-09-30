@@ -428,6 +428,23 @@ class Trainer:
         if val_loss is not None:
             np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss"),val_loss)
 
+    def load_loss(self):
+        train_loss_path = os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss")
+        val_loss_path = os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss")
+
+        if os.path.isfile(train_loss_path): 
+            train_loss = np.load(train_loss_path).tolist()
+        else: 
+            train_loss =[]
+
+        if os.path.isfile(val_loss_path): 
+            val_loss = np.load(train_loss_path).tolist()
+        else: 
+            val_loss = []
+        
+        return train_loss,val_loss
+        
+
     def save_best_model(self,loss,best_model_loss):
         if loss < best_model_loss:
             best_model_loss = loss
@@ -446,7 +463,7 @@ class Trainer:
             self.val_dl = self.make_data_loader(dataset_val, shuffle=False)
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
 
-        train_loss, val_loss = [], []
+        train_loss, val_loss = self.load_loss
         best_model_loss = np.inf
         for epoch in tqdm(range(self.epochs)):
             self.model.train()  

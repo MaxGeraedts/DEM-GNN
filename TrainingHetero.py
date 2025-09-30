@@ -8,7 +8,7 @@ retrain         = False
 
 batch_size      = 1
 lr              = 0.1
-epochs          = 2000
+epochs          = 4000
 
 msg_num = 5
 emb_dim = 64
