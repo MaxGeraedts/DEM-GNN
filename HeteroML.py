@@ -282,9 +282,9 @@ class HeteroDEMDataset(InMemoryDataset):
     @property
     def processed_file_names(self):
         if self.forward_step_max == 0:
-            processed_file_name = f"{self.dataset_name}_bund{self.bundle_size}_push{self.forward_step_max}_{self.dataset_type}.pt"
+            processed_file_name = f"{self.dataset_name}_het_bund{self.bundle_size}_push{self.forward_step_max}_{self.dataset_type}.pt"
         else:
-            processed_file_name = f"{self.dataset_name}_bund{self.bundle_size}__push{self.forward_step_max}_{self.model_ident}_{self.dataset_type}.pt"
+            processed_file_name = f"{self.dataset_name}_het_bund{self.bundle_size}_push{self.forward_step_max}_{self.model_ident}_{self.dataset_type}.pt"
         return [os.path.join(self.processed_data_path,processed_file_name)]
 
     def LoadSimTop(self,i):
@@ -323,7 +323,7 @@ class HeteroDEMDataset(InMemoryDataset):
                         par_data, bc_t, matlab_topology = self.Rollout_step(par_data, bc_t, matlab_topology)
                 
                 bc_t[0] += bc_t[1]
-                
+
                 pos_slice        = self.SliceAndReshapeData(sim_data,t  ,push_forward_steps)
                 pos_target_slice = self.SliceAndReshapeData(sim_data,t+1,push_forward_steps)
                 pos_slice[:,:3] = par_data[:,:3]
