@@ -266,7 +266,8 @@ class HeteroDEMDataset(InMemoryDataset):
         self.bundle_size = bundle_size
         self.model = model
         self.model_ident = model_ident
-
+        print(self.dataset_name)
+        print(self.dataset_type)
         super().__init__(root, transform, pre_transform,force_reload=force_reload)
         self.load(self.processed_file_names[0])
 
@@ -301,7 +302,6 @@ class HeteroDEMDataset(InMemoryDataset):
     def process(self):
         data_list = []
         data_agr,bc_agr= [self.LoadSimTop(i) for i in [0,2]]
-
         if self.forward_step_max > 0:
             transform = T.Compose([T.ToUndirected(),CartesianHetero(False),DistanceHetero(),NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=False)])
             Simulation = LearnedSimulatorHetero(self.model,scale_function=Rescale(self.dataset_name,self.scale_name),transform=transform)
@@ -343,6 +343,60 @@ class HeteroDEMDataset(InMemoryDataset):
         data_list = [self.normalize(data) for data in tqdm(data_list)]
 
         self.save(data_list, self.processed_file_names[0])
+
+from Training import SaveModelInfo,SaveTrainingInfo
+class TrainHetero():
+    def __init__(self,dataset_name,model_ident,batch_size,lr,epochs,msg_num,emb_dim,num_layers):
+        self.dataset_name = dataset_name
+        self.model_ident = model_ident
+        self.batch_size = batch_size
+        self.lr = lr
+        self.epochs = epochs
+        self.msg_num = msg_num
+        self.emb_dim = emb_dim
+        self.num_layers = num_layers
+
+    def forward(self,dataset_train,retrain:bool=False):
+        model,msg = GetHeteroModel(self.dataset_name,self.model_ident,dataset_train[0].metadata(),
+                                self.msg_num,self.emb_dim,self.num_layers,retrain)
+        
+        if msg == 'Loaded model' and retrain == False:
+            raise Exception('pre-trained model already exists')
+        
+        SaveModelInfo(model,self.dataset_name,self.model_ident,hetero=True)
+        trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,self.model_ident)
+        trainer.train_loop(dataset_train)
+        SaveTrainingInfo(dataset_train,trainer)
+
+class ForwardTrainHetero():
+    def __init__(self,dataset_name,model_ident,batch_size,lr,epochs,bundle_size):
+        self.dataset_name = dataset_name
+        self.model_ident = model_ident
+        self.bundle_size = bundle_size
+        self.batch_size = batch_size
+        self.lr = lr
+        self.epochs = epochs
+
+    def forward(self,start_with_push:bool=False,push_forward_step_max:int=0):
+        if start_with_push:
+            model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push",dataset_train[0].metadata())
+        else:
+            model,msg = GetHeteroModel(self.dataset_name,self.model_ident,dataset_train[0].metadata())
+
+        if msg != 'Loaded model':
+            raise Exception('Failed to load pre-trained model')
+        dataset_train = HeteroDEMDataset(self.dataset_name,'train',
+                                         force_reload=True,
+                                         bundle_size=self.bundle_size,
+                                         model=model,
+                                         model_ident=self.model_ident,
+                                         push_forward_step_max=push_forward_step_max)
+        
+        subset_train = torch.utils.data.Subset(dataset_train,[i for i in range(99)])
+        print(f"Training {self.model_name}_Push")
+        trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,model_ident=f"{self.model_ident}_Push")    
+        trainer.train_loop(subset_train)
+        SaveTrainingInfo(dataset_train,trainer)
 
 class HeteroConvEdge(torch.nn.Module):
     r"""Adaptation of the HeteroConv wrapper, this version also outputs edge embeddings.
