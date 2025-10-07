@@ -30,7 +30,8 @@ class LearnedSimulatorHetero(LearnedSimulator):
         input_data.to(self.device)
 
         # Run ML Model
-        output = self.model(input_data)[0]
+        with torch.inference_mode():
+            output = self.model(input_data)[0]
         output = self.rescale(output).cpu()
         output = np.stack(np.split(output,output.shape[1]/3,axis=1))
         # With displacement vectors update particle positions and topology
@@ -252,7 +253,9 @@ class HeteroDEMDataset(InMemoryDataset):
                  push_forward_step_max: int = 0,
                  bundle_size: int = 1,
                  model = None,
-                 model_ident:str=None):
+                 model_ident:str=None,
+                 overfit_sim_idx:int=None,
+                 overfit_time_idx:int=None):
         
         root: str = os.path.join(os.getcwd(),"Data")
         self.dataset_type = dataset_type
@@ -266,8 +269,9 @@ class HeteroDEMDataset(InMemoryDataset):
         self.bundle_size = bundle_size
         self.model = model
         self.model_ident = model_ident
-        print(self.dataset_name)
-        print(self.dataset_type)
+        self.overfit_sim_idx = overfit_sim_idx
+        self.overfit_time_idx = overfit_time_idx
+
         super().__init__(root, transform, pre_transform,force_reload=force_reload)
         self.load(self.processed_file_names[0])
 
@@ -299,6 +303,13 @@ class HeteroDEMDataset(InMemoryDataset):
         pos_slice_2D = np.concatenate([pos for pos in pos_slice],axis=1)
         return pos_slice_2D
     
+    def GetPushForwardSteps(self):
+        if self.forward_step_max == 0:
+            push_forward_steps = 0
+        else:
+            push_forward_steps = np.random.randint(1,self.forward_step_max+1)
+        return push_forward_steps
+    
     def process(self):
         data_list = []
         data_agr,bc_agr= [self.LoadSimTop(i) for i in [0,2]]
@@ -307,15 +318,22 @@ class HeteroDEMDataset(InMemoryDataset):
             Simulation = LearnedSimulatorHetero(self.model,scale_function=Rescale(self.dataset_name,self.scale_name),transform=transform)
             self.Rollout_step = Simulation.Rollout_Step
 
-        for sim_data, bc in tqdm(zip(data_agr,bc_agr),total=bc_agr.shape[0]):
+        for i, (sim_data, bc) in tqdm(enumerate(zip(data_agr,bc_agr)),total=bc_agr.shape[0]):
+            if i is not self.overfit_sim_idx and self.overfit_sim_idx is not None:
+                continue
+
             self.super_topology = ConstructTopology(sim_data[0],bc,self.super_tol)
             if self.forward_step_max > 0: Simulation.super_topology = self.super_topology
             for t in range(len(sim_data)-1*self.bundle_size*(self.forward_step_max+1)):
+
+                if t is not self.overfit_time_idx and self.overfit_time_idx is not None:
+                    continue
+
                 par_data = sim_data[t].copy()
                 bc_t = bc.copy()
                 bc_t[0] = bc[0]+(t+1)*bc[1]
 
-                push_forward_steps = np.random.randint(0,self.forward_step_max+1)
+                push_forward_steps = self.GetPushForwardSteps()
                 matlab_topology = TopologyFromPlausibleTopology(self.super_topology,par_data,bc_t,0)
 
                 with torch.inference_mode():
@@ -330,6 +348,8 @@ class HeteroDEMDataset(InMemoryDataset):
                 displacements = pos_target_slice-pos_slice
 
                 data = ToHeteroData(par_data,matlab_topology,bc_t,displacements)
+                data.push_forward_steps=push_forward_steps
+                data.t = t+push_forward_steps
                 data_list.append(data)
         
         print(f"Pre-processing data:")
@@ -337,7 +357,7 @@ class HeteroDEMDataset(InMemoryDataset):
             data_list = [self.pre_transform(data) for data in tqdm(data_list)]
 
         print(f"Normalizing {self.dataset_type} data")    
-        if self.dataset_type == "train":
+        if self.dataset_type == "train" and self.forward_step_max == 0:
             GetScales(Batch.from_data_list(data_list),self.dataset_name,self.scale_name,hetero=True)
         self.normalize = NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=False)
         data_list = [self.normalize(data) for data in tqdm(data_list)]
@@ -360,7 +380,7 @@ class TrainHetero():
         model,msg = GetHeteroModel(self.dataset_name,self.model_ident,dataset_train[0].metadata(),
                                 self.msg_num,self.emb_dim,self.num_layers,retrain)
         
-        if msg == 'Loaded model' and retrain == False:
+        if msg == 'Loaded model' and retrain == True:
             raise Exception('pre-trained model already exists')
         
         SaveModelInfo(model,self.dataset_name,self.model_ident,hetero=True)
@@ -368,52 +388,72 @@ class TrainHetero():
         trainer.train_loop(dataset_train)
         SaveTrainingInfo(dataset_train,trainer)
 
-class CustomDataset(InMemoryDataset):
-    def __init__(self, listOfDataObjects):
-        super().__init__()
-        self.data, self.slices = self.collate(listOfDataObjects)
-    
-    def __len__(self):
-        return len(self.slices)
-    
-    def __getitem__(self, idx):
-        sample = self.get(idx)
-        return sample
-    
+from ML_functions import Rescale
 class ForwardTrainHetero():
-    def __init__(self,dataset_name,model_ident,dataset_train_clean,batch_size,lr,epochs,bundle_size):
+    def __init__(self,dataset_name:str,model_ident:str,dataset_train_clean,batch_size:int,lr:float,epochs:int,bundle_size:int):
         self.dataset_name = dataset_name
         self.model_ident = model_ident
         self.dataset_train_clean = dataset_train_clean
+        self.model_metadata = dataset_train_clean[0].metadata()
         self.bundle_size = bundle_size
         self.batch_size = batch_size
         self.lr = lr
         self.epochs = epochs
+        self.scale_function = Rescale(dataset_name,scale_name=f"{dataset_name}_Hetero")
 
-    def __call__(self,start_with_push:bool=False,push_forward_step_max:int=0):
-        if start_with_push:
-            model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push",dataset_train[0].metadata())
+    def ValidateNoisyDataEquality(self):
+        for data_noisy in self.dataset_train_noisy:
+            data_clean = self.dataset_train_clean[data_noisy.t.item()]
+
+            if data_clean.t.item()!=data_noisy.t.item():
+                raise Exception('timestep does not match')
+            eqpos_clean = data_clean['particle'].pos.detach().clone()
+            eqpos_noisy = data_noisy['particle'].pos.detach().clone()
+            eqpos_clean += self.scale_function(data_clean['particle'].y.detach().clone())
+            eqpos_noisy += self.scale_function(data_noisy['particle'].y.detach().clone())
+            all_eqpos_match = np.all(np.isclose(eqpos_clean,eqpos_noisy,atol=0,rtol=1e-9))
+
+            if all_eqpos_match is False:
+                raise Exception('Error in noise injection equilibrium positions')
+        print('Noisy labels sucessfully validated')
+
+    def GetModel(self,push_idx):
+        if push_idx == 0:
+            model,msg = GetHeteroModel(self.dataset_name,self.model_ident,self.model_metadata)
         else:
-            model,msg = GetHeteroModel(self.dataset_name,self.model_ident,dataset_train[0].metadata())
+            model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push",self.model_metadata)
 
         if msg != 'Loaded model':
             raise Exception('Failed to load pre-trained model')
-        dataset_train_noisy = HeteroDEMDataset(self.dataset_name,'train',
-                                                force_reload=True,
-                                                bundle_size=self.bundle_size,
-                                                model=model,
-                                                model_ident=self.model_ident,
-                                                push_forward_step_max=push_forward_step_max)
-        data_list_clean = [data for data in self.dataset_train_clean]
-        data_list_noisy = [data for data in dataset_train_noisy]
-        data_list = data_list_clean+data_list_noisy
-        dataset_train = CustomDataset(data_list)
         
-        subset_train = torch.utils.data.Subset(dataset_train,[i for i in range(99)])
-        print(f"Training {self.model_name}_Push")
+        return model
+    
+    def AugmentDataset(self,model,push_forward_step_max):
+        self.dataset_train_noisy = HeteroDEMDataset(self.dataset_name,'train',
+                                                    force_reload=True,
+                                                    bundle_size=self.bundle_size,
+                                                    model=model,
+                                                    model_ident=self.model_ident,
+                                                    overfit_sim_idx=self.dataset_train_clean.overfit_sim_idx,
+                                                    overfit_time_idx=self.dataset_train_clean.overfit_time_idx,
+                                                    push_forward_step_max=push_forward_step_max)
+        
+        data_list_clean = [data for data in self.dataset_train_clean]
+        data_list_noisy = [data for data in self.dataset_train_noisy]
+        dataset_train = InMemoryDataset()
+        dataset_train.data, dataset_train.slices = dataset_train.collate(data_list_clean+data_list_noisy)
+        return dataset_train
+        
+    def __call__(self,push_idx:int=0,push_forward_step_max:int=0,validate_eq:bool=False):
+        model = self.GetModel(push_idx)
+        self.dataset_train = self.AugmentDataset(model,push_forward_step_max)
+
+        if validate_eq is True: self.ValidateNoisyDataEquality()
+
+        print(f"Training {self.dataset_name}_{self.model_ident}_Push{push_idx}")
         trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,model_ident=f"{self.model_ident}_Push")    
-        trainer.train_loop(subset_train)
-        SaveTrainingInfo(dataset_train,trainer)
+        trainer.train_loop(self.dataset_train)
+        SaveTrainingInfo(self.dataset_train_noisy,trainer)
 
 class HeteroConvEdge(torch.nn.Module):
     r"""Adaptation of the HeteroConv wrapper, this version also outputs edge embeddings.

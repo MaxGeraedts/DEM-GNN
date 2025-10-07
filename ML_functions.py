@@ -34,13 +34,16 @@ def MaskTestData(dataset_name:str,dataset_type: Literal["train","validate","test
 class LearnedSimulator:
     def __init__(self,model,scale_function,super_tol:int = 6,tol:int = 0, transform=None,timesteps:int=100,device:str='cuda'):
         self.device = device
-        self.model = model.to(self.device)
+        self.model = model.to(self.device).eval()
         self.rescale = scale_function
         self.timesteps = timesteps
         self.super_tol = super_tol
         self.tol = tol
         self.transform = transform
-        self.bundle_size = model.bundle_size
+        if hasattr(model,'bundle_size'):
+            self.bundle_size = model.bundle_size
+        else:
+            self.bundle_size = 1
 
     def BCrollout(self,show_tqdm:bool)->list[npt.NDArray]:
         if show_tqdm: print("Calculating BC")
@@ -429,8 +432,8 @@ class Trainer:
             np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss"),val_loss)
 
     def load_loss(self):
-        train_loss_path = os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss")
-        val_loss_path = os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss")
+        train_loss_path = os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss.npy")
+        val_loss_path = os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss.npy")
 
         if os.path.isfile(train_loss_path): 
             train_loss = np.load(train_loss_path).tolist()
@@ -438,13 +441,12 @@ class Trainer:
             train_loss =[]
 
         if os.path.isfile(val_loss_path): 
-            val_loss = np.load(train_loss_path).tolist()
+            val_loss = np.load(val_loss_path).tolist()
         else: 
             val_loss = []
         
         return train_loss,val_loss
         
-
     def save_best_model(self,loss,best_model_loss):
         if loss < best_model_loss:
             best_model_loss = loss
