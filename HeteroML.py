@@ -344,7 +344,7 @@ class HeteroDEMDataset(InMemoryDataset):
 
         self.save(data_list, self.processed_file_names[0])
 
-from Training import SaveModelInfo,SaveTrainingInfo
+from ML_functions import SaveModelInfo,SaveTrainingInfo
 class TrainHetero():
     def __init__(self,dataset_name,model_ident,batch_size,lr,epochs,msg_num,emb_dim,num_layers):
         self.dataset_name = dataset_name
@@ -356,7 +356,7 @@ class TrainHetero():
         self.emb_dim = emb_dim
         self.num_layers = num_layers
 
-    def forward(self,dataset_train,retrain:bool=False):
+    def __call__(self,dataset_train,retrain:bool=False):
         model,msg = GetHeteroModel(self.dataset_name,self.model_ident,dataset_train[0].metadata(),
                                 self.msg_num,self.emb_dim,self.num_layers,retrain)
         
@@ -368,16 +368,29 @@ class TrainHetero():
         trainer.train_loop(dataset_train)
         SaveTrainingInfo(dataset_train,trainer)
 
+class CustomDataset(InMemoryDataset):
+    def __init__(self, listOfDataObjects):
+        super().__init__()
+        self.data, self.slices = self.collate(listOfDataObjects)
+    
+    def __len__(self):
+        return len(self.slices)
+    
+    def __getitem__(self, idx):
+        sample = self.get(idx)
+        return sample
+    
 class ForwardTrainHetero():
-    def __init__(self,dataset_name,model_ident,batch_size,lr,epochs,bundle_size):
+    def __init__(self,dataset_name,model_ident,dataset_train_clean,batch_size,lr,epochs,bundle_size):
         self.dataset_name = dataset_name
         self.model_ident = model_ident
+        self.dataset_train_clean = dataset_train_clean
         self.bundle_size = bundle_size
         self.batch_size = batch_size
         self.lr = lr
         self.epochs = epochs
 
-    def forward(self,start_with_push:bool=False,push_forward_step_max:int=0):
+    def __call__(self,start_with_push:bool=False,push_forward_step_max:int=0):
         if start_with_push:
             model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push",dataset_train[0].metadata())
         else:
@@ -385,12 +398,16 @@ class ForwardTrainHetero():
 
         if msg != 'Loaded model':
             raise Exception('Failed to load pre-trained model')
-        dataset_train = HeteroDEMDataset(self.dataset_name,'train',
-                                         force_reload=True,
-                                         bundle_size=self.bundle_size,
-                                         model=model,
-                                         model_ident=self.model_ident,
-                                         push_forward_step_max=push_forward_step_max)
+        dataset_train_noisy = HeteroDEMDataset(self.dataset_name,'train',
+                                                force_reload=True,
+                                                bundle_size=self.bundle_size,
+                                                model=model,
+                                                model_ident=self.model_ident,
+                                                push_forward_step_max=push_forward_step_max)
+        data_list_clean = [data for data in self.dataset_train_clean]
+        data_list_noisy = [data for data in dataset_train_noisy]
+        data_list = data_list_clean+data_list_noisy
+        dataset_train = CustomDataset(data_list)
         
         subset_train = torch.utils.data.Subset(dataset_train,[i for i in range(99)])
         print(f"Training {self.model_name}_Push")
