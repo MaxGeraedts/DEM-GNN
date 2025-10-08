@@ -376,7 +376,7 @@ class TrainHetero():
         self.emb_dim = emb_dim
         self.num_layers = num_layers
 
-    def __call__(self,dataset_train,retrain:bool=False):
+    def __call__(self,dataset_train,dataset_val=None,retrain:bool=False):
         model,msg = GetHeteroModel(self.dataset_name,self.model_ident,dataset_train[0].metadata(),
                                 self.msg_num,self.emb_dim,self.num_layers,retrain)
         
@@ -385,16 +385,16 @@ class TrainHetero():
         
         SaveModelInfo(model,self.dataset_name,self.model_ident,hetero=True)
         trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,self.model_ident)
-        trainer.train_loop(dataset_train)
+        trainer.train_loop(dataset_train,dataset_val)
         SaveTrainingInfo(dataset_train,trainer)
 
 from ML_functions import Rescale
 class ForwardTrainHetero():
-    def __init__(self,dataset_name:str,model_ident:str,dataset_train_clean,batch_size:int,lr:float,epochs:int,bundle_size:int):
+    def __init__(self,dataset_name:str,model_ident:str,dataset_clean,batch_size:int,lr:float,epochs:int,bundle_size:int):
         self.dataset_name = dataset_name
         self.model_ident = model_ident
-        self.dataset_train_clean = dataset_train_clean
-        self.model_metadata = dataset_train_clean[0].metadata()
+        self.dataset_clean = dataset_clean
+        self.model_metadata = dataset_clean[0].metadata()
         self.bundle_size = bundle_size
         self.batch_size = batch_size
         self.lr = lr
@@ -402,8 +402,8 @@ class ForwardTrainHetero():
         self.scale_function = Rescale(dataset_name,scale_name=f"{dataset_name}_Hetero")
 
     def ValidateNoisyDataEquality(self):
-        for data_noisy in self.dataset_train_noisy:
-            data_clean = self.dataset_train_clean[data_noisy.t.item()]
+        for data_noisy in self.dataset_noisy:
+            data_clean = self.dataset_clean[data_noisy.t.item()]
 
             if data_clean.t.item()!=data_noisy.t.item():
                 raise Exception('timestep does not match')
@@ -429,31 +429,32 @@ class ForwardTrainHetero():
         return model
     
     def AugmentDataset(self,model,push_forward_step_max):
-        self.dataset_train_noisy = HeteroDEMDataset(self.dataset_name,'train',
-                                                    force_reload=True,
-                                                    bundle_size=self.bundle_size,
-                                                    model=model,
-                                                    model_ident=self.model_ident,
-                                                    overfit_sim_idx=self.dataset_train_clean.overfit_sim_idx,
-                                                    overfit_time_idx=self.dataset_train_clean.overfit_time_idx,
-                                                    push_forward_step_max=push_forward_step_max)
+        self.dataset_noisy = HeteroDEMDataset(self.dataset_name,'train',
+                                                force_reload=True,
+                                                bundle_size=self.bundle_size,
+                                                model=model,
+                                                model_ident=self.model_ident,
+                                                overfit_sim_idx=self.dataset_train_clean.overfit_sim_idx,
+                                                overfit_time_idx=self.dataset_train_clean.overfit_time_idx,
+                                                push_forward_step_max=push_forward_step_max)
         
-        data_list_clean = [data for data in self.dataset_train_clean]
-        data_list_noisy = [data for data in self.dataset_train_noisy]
-        dataset_train = InMemoryDataset()
-        dataset_train.data, dataset_train.slices = dataset_train.collate(data_list_clean+data_list_noisy)
-        return dataset_train
+        data_list_clean = [data for data in self.dataset_clean]
+        data_list_noisy = [data for data in self.dataset_noisy]
+        dataset = InMemoryDataset()
+        dataset.data, dataset.slices = dataset.collate(data_list_clean+data_list_noisy)
+        dataset_train, dataset_val = torch.utils.data.random_split(dataset,[0.85,0.15])
+        return dataset_train, dataset_val
         
     def __call__(self,push_idx:int=0,push_forward_step_max:int=0,validate_eq:bool=False):
         model = self.GetModel(push_idx)
-        self.dataset_train = self.AugmentDataset(model,push_forward_step_max)
+        self.dataset_train,self.dataset_val = self.AugmentDataset(model,push_forward_step_max)
 
         if validate_eq is True: self.ValidateNoisyDataEquality()
 
         print(f"Training {self.dataset_name}_{self.model_ident}_Push{push_idx}")
         trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,model_ident=f"{self.model_ident}_Push")    
-        trainer.train_loop(self.dataset_train)
-        SaveTrainingInfo(self.dataset_train_noisy,trainer)
+        trainer.train_loop(self.dataset_train,self.dataset_val)
+        SaveTrainingInfo(self.dataset_noisy,trainer)
 
 class HeteroConvEdge(torch.nn.Module):
     r"""Adaptation of the HeteroConv wrapper, this version also outputs edge embeddings.
