@@ -17,9 +17,7 @@ msg_num = 5
 emb_dim = 128
 num_layers = 3
 
-dataset = [HeteroDEMDataset(dataset_name,dataset_type,force_reload=True,overfit_sim_idx=0) 
-                            for dataset_type in ['train']]
-
+dataset = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=True,overfit_sim_idx=0)
 dataset_train, dataset_val = random_split(dataset,[0.85,0.15])
 
 train = TrainHetero(dataset_name,model_ident,batch_size,lr,epochs,msg_num,emb_dim,num_layers)
