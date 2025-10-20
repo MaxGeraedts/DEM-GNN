@@ -1,4 +1,4 @@
-from HeteroML import HeteroDEMDataset, HeteroTrainer, HeteroDEMGNN, GetHeteroModel, TrainHetero,ForwardTrainHetero
+from HeteroML import HeteroDEMDataset, TrainHetero,ForwardTrainHetero, MakeDIRs
 from torch.utils.data import random_split
 
 dataset_name    = 'BCC'
@@ -17,6 +17,7 @@ msg_num = 5
 emb_dim = 128
 num_layers = 3
 
+MakeDIRs(dataset_name)
 dataset = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=True,overfit_sim_idx=0)
 dataset_train, dataset_val = random_split(dataset,[0.85,0.15])
 

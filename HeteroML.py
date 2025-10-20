@@ -19,6 +19,15 @@ import torch_geometric.transforms as T
 from Encoding import ToHeteroData,ConstructTopology,TopologyFromPlausibleTopology, ToPytorchData
 from ML_functions import LearnedSimulator,Trainer, NormalizeData,Rescale, DataMask, GetScales
 
+def MakeDIRs(dataset_name):
+    root = os.getcwd()
+    model_dir = os.path.join(root,"Models",dataset_name)
+    data_raw_dir = os.path.join(root,"Data","raw",dataset_name)
+    data_proc_dir = os.path.join(root,"Data","processed",dataset_name)
+
+    for dir in [model_dir,data_proc_dir]:
+        if not os.path.isdir(dir): os.mkdir(dir)
+
 class LearnedSimulatorHetero(LearnedSimulator):
     def __init__(self, model, scale_function, super_tol = 6, tol = 0, transform=None, timesteps = 100, device = 'cuda'):
         super().__init__(model, scale_function, super_tol, tol, transform, timesteps, device)
