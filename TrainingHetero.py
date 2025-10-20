@@ -1,15 +1,15 @@
 from HeteroML import HeteroDEMDataset, HeteroTrainer, HeteroDEMGNN, GetHeteroModel, TrainHetero,ForwardTrainHetero
 from torch.utils.data import random_split
 
-dataset_name    = 'N400_Mono'
-model_ident     = 'b4'
+dataset_name    = 'BCC'
+model_ident     = 'b64'
 retrain         = True
 
-batch_size      = 4
+batch_size      = 64
 lr              = 0.01
-epochs          = 2000
+epochs          = 4000
 
-push_forward_loops = 4
+push_forward_loops = 0
 push_forward_epochs = 2000
 push_forward_step_max_list:list = [15]*push_forward_loops
 

@@ -1,10 +1,10 @@
 from Encoding import AggregateRawData, save, GetDataDir
-from ML_functions import HeteroDEMDataset
+from HeteroML import HeteroDEMDataset
 import os
-dataset = True
-aggregate = False
+dataset = False
+aggregate = True
 
-dataset_name = r"N400_Mono"
+dataset_name = r"FCC"
 data_dir = GetDataDir()
 
 if aggregate == True:
