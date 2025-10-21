@@ -77,10 +77,17 @@ class AggregateRawData():
         end_time = os.stat(end_file).st_ctime
 
         return end_time-start_time
+    
+    def _GetTimesteps(self,sim_dir):
+        par_dirs = [os.path.join(sim_dir,dir) for dir in os.listdir(sim_dir) if "Particles" in dir]
+        return len(par_dirs)
+    
+    def DetectShortSim(self,Ntimesteps):
+        [print(f"Erroneous number of steps in simulation #{sim_dir[-4:]}") for sim_dir in self.sim_dirs if self._GetTimesteps(sim_dir) != Ntimesteps]
 
     def ParticleData(self):
         par_data = np.array([self._ParticleData(sim_dir) for sim_dir in tqdm(self.sim_dirs)])
-        return par_data
+        return par_data 
     
     def TopologyData(self):
         topology = [self._TopologyData(sim_dir) for sim_dir in tqdm(self.sim_dirs)]

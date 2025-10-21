@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=2Sphere_Training
+#SBATCH --job-name=N400_Training
 #SBATCH --output=./Jobs/2Sphere-%j.log
 #SBATCH --partition=be.gpuresearch.q,tue.gpu.q
 #SBATCH --nodes=1
