@@ -1,8 +1,10 @@
 from HeteroML import HeteroDEMDataset, TrainHetero,ForwardTrainHetero, MakeDIRs
 from torch.utils.data import random_split
 
-dataset_name    = 'BCC'
-model_ident     = 'b64'
+overfit = False
+
+dataset_name    = '2Sphere'
+model_ident     = 'emb64'
 retrain         = True
 
 batch_size      = 64
@@ -14,12 +16,16 @@ push_forward_epochs = 2000
 push_forward_step_max_list:list = [15]*push_forward_loops
 
 msg_num = 5
-emb_dim = 128
+emb_dim = 64
 num_layers = 3
 
 MakeDIRs(dataset_name)
-dataset = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=True,overfit_sim_idx=0)
-dataset_train, dataset_val = random_split(dataset,[0.85,0.15])
+if overfit == True:
+    dataset = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=True,overfit_sim_idx=0)
+    dataset_train, dataset_val = random_split(dataset,[0.85,0.15])
+else:
+    dataset_train = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=True)
+    dataset_val = HeteroDEMDataset(dataset_name,dataset_type='validate',force_reload=True)
 
 train = TrainHetero(dataset_name,model_ident,batch_size,lr,epochs,msg_num,emb_dim,num_layers)
 train(dataset_train, dataset_val,retrain)
