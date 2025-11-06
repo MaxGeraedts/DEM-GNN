@@ -600,8 +600,10 @@ def GetHeteroModel(dataset_name,model_ident,metadata=None,
         model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}")
     
     model_info_path = f"{model_path}_ModelInfo.json"
-
-    if os.path.exists(model_path) and os.path.exists(model_info_path) and retrain==False:   
+    print(os.path.exists(model_path)) 
+    print(os.path.exists(model_info_path))
+    if os.path.exists(model_path) and os.path.exists(model_info_path) and retrain==False: 
+        
         with open(model_info_path) as json_file: settings = json.load(json_file)
 
         model = HeteroDEMGNN(dataset_name,metadata,

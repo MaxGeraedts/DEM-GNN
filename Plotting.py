@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-import pyvista as pv
+#import pyvista as pv
 import os 
 from tqdm import tqdm, trange
 from typing import Type
@@ -285,7 +285,7 @@ def PlotStressComparison(Rollout:Type[LearnedSimulator],dims:list=[0,1,2],plot_m
 
     return fig, axs
 
-def PlotTrainingLoss(dataset_name,model_ident,push=True):
+def PlotTrainingLoss(dataset_name,model_ident,push=True,validate:bool=True):
 
     model_name = f"{dataset_name}_{model_ident}"
     training_loss = np.load(os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}_Training_Loss.npy"))
@@ -304,7 +304,8 @@ def PlotTrainingLoss(dataset_name,model_ident,push=True):
 
     for ax in axs:
         ax.plot(training_loss,label="Training Loss")
-        ax.plot(validation_loss,label="Validation Loss")
+        if validate is True:
+            ax.plot(validation_loss,label="Validation Loss")
         ax.set_xlabel('Epoch',fontweight='bold')
         ax.set_ylabel("Loss",fontweight='bold')
         ax.legend()
