@@ -422,7 +422,7 @@ class TrainHetero():
 
 from ML_functions import Rescale
 class ForwardTrainHetero():
-    def __init__(self,dataset_name:str,model_ident:str,dataset_clean,batch_size:int,lr:float,epochs:int,bundle_size:int):
+    def __init__(self,dataset_name:str,model_ident:str,model_sfx:str,dataset_clean,batch_size:int,lr:float,epochs:int,bundle_size:int):
         self.dataset_name = dataset_name
         self.model_ident = model_ident
         self.dataset_clean = dataset_clean
@@ -432,7 +432,7 @@ class ForwardTrainHetero():
         self.lr = lr
         self.epochs = epochs
         self.scale_function = Rescale(dataset_name,model_ident,scale_name=f"{dataset_name}_Hetero")
-        self.model_sfx ='train'
+        self.model_sfx = model_sfx
 
     def ValidateNoisyDataEquality(self):
         for data_noisy in self.dataset_noisy:
