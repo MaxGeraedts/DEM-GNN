@@ -15,6 +15,8 @@ def GetDataDir():
         data_dir = r"D:\TUE\Master\Graduation\Data"
     elif user[-8:] == '20182319': 
         data_dir = r'C:\Users\20182319\Documents\Master\Graduation\Data'
+    elif user == r"C:\Users\mailm":
+        data_dir = os.path.join(user,"Documents","Master","Data")
     if os.path.exists(data_dir) == False:
         data_dir = os.path.join("..","Data")
     return data_dir

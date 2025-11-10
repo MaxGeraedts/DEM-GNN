@@ -399,6 +399,9 @@ class Trainer:
         self.model_ident = model_ident
         self.model_name = f"{dataset_name}_{model_ident}"
 
+        self.save_dir = os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name)
+        os.mkdir(self.save_dir)
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print("Device: ", self.device)
         self.model.to(self.device)
@@ -427,13 +430,13 @@ class Trainer:
         return mean_loss,loss_list
     
     def save_loss(self,train_loss,val_loss:None):
-        np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss"),train_loss)
+        np.save(os.path.join(self.save_dir,f"{self.model_name}_Training_Loss"),train_loss)
         if val_loss is not None:
-            np.save(os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss"),val_loss)
+            np.save(os.path.join(self.save_dir,f"{self.model_name}_Validation_Loss"),val_loss)
 
     def load_loss(self):
-        train_loss_path = os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Training_Loss.npy")
-        val_loss_path = os.path.join(os.getcwd(),"Models",self.dataset_name,f"{self.model_name}_Validation_Loss.npy")
+        train_loss_path = os.path.join(self.save_dir,f"{self.model_name}_Training_Loss.npy")
+        val_loss_path = os.path.join(self.save_dir,f"{self.model_name}_Validation_Loss.npy")
 
         if os.path.isfile(train_loss_path): 
             train_loss = np.load(train_loss_path).tolist()
@@ -446,11 +449,15 @@ class Trainer:
             val_loss = []
         
         return train_loss,val_loss
-        
-    def save_best_model(self,loss,best_model_loss):
+    
+    def save_statedict(self,savename):
+        torch.save(self.model.state_dict(),os.path.join(self.save_dir,savename))
+
+    def save_best_model(self,loss,best_model_loss,suffix):
+        savename = f"{self.model_name}_{suffix}"
         if loss < best_model_loss:
             best_model_loss = loss
-            torch.save(self.model.state_dict(),os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name))
+            self.save_statedict(savename)
         return best_model_loss
 
     def print_results(self,epoch,mean_train_loss,mean_val_loss):
@@ -466,7 +473,8 @@ class Trainer:
         self.optimizer = torch.optim.Adam(self.model.parameters(),lr=self.lr)
 
         train_loss, val_loss = self.load_loss()
-        best_model_loss = np.inf
+        best_model_loss_train = np.inf
+        best_model_loss_val = np.inf
         for epoch in tqdm(range(self.epochs)):
             self.model.train()  
             mean_train_loss, train_loss = self.batch_loop(self.train_dl,train_loss,self.optimizer)
@@ -474,14 +482,18 @@ class Trainer:
             self.model.eval()
             if dataset_val is not None:
                 with torch.inference_mode(): mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss)
-                best_model_loss = self.save_best_model(mean_val_loss,best_model_loss)
+                best_model_loss_train = self.save_best_model(mean_train_loss,best_model_loss_train,"train")
+                best_model_loss_val = self.save_best_model(mean_val_loss,best_model_loss_val,"val")
 
             if dataset_val is None:
-                best_model_loss = self.save_best_model(mean_train_loss,best_model_loss)
+                best_model_loss_train = self.save_best_model(mean_train_loss,best_model_loss_train,"train")
                 mean_val_loss = None
             
             if epoch % 25 == 0: 
                 self.save_loss(train_loss,val_loss)
+            
+            if epoch % 100 == 0:
+                self.save_statedict(f"{self.model_name}_{epoch}")
 
             self.print_results(epoch,mean_train_loss,mean_val_loss)
 
@@ -491,9 +503,9 @@ def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4
     model_name = f"{dataset_name}_{model_ident}"
     try: 
         if model_name[-4:] == "Push":
-            model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name[:-5]}")
+            model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name[:-5]}")
         else:
-            model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}")
+            model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}")
             
         with open(f"{model_path}_ModelInfo.json") as json_file: settings = json.load(json_file)
 
@@ -533,7 +545,8 @@ def SaveModelInfo(model,dataset_name:str,model_ident:str,hetero:bool=False):
     for attr in model_attr:
         if hasattr(model,attr): ModelInfo[attr] = getattr(model,attr)
 
-    filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{model_ident}_ModelInfo.json")
+    model_name =f"{dataset_name}_{model_ident}"
+    filename = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}_ModelInfo.json")
     with open(filename,'w') as f: 
         json.dump(ModelInfo,f)
 
@@ -547,6 +560,6 @@ def SaveTrainingInfo(dataset,trainer):
     for attr in trainer_attr:
         if hasattr(trainer,attr): TrainingInfo[attr] = getattr(trainer,attr)
 
-    filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,f"{trainer.model_name}_TrainingInfo.json")
+    filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,trainer.model_name,f"{trainer.model_name}_TrainingInfo.json")
     with open(filename,'w') as f: 
         json.dump(TrainingInfo,f)
