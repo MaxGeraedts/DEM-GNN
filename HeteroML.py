@@ -392,8 +392,8 @@ class TrainHetero():
         if msg == 'Loaded model' and retrain == True:
             raise Exception('pre-trained model already exists')
         
-        SaveModelInfo(model,self.dataset_name,self.model_ident,hetero=True)
         trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,self.model_ident)
+        SaveModelInfo(model,self.dataset_name,self.model_ident,hetero=True)
         trainer.train_loop(dataset_train,dataset_val)
         SaveTrainingInfo(dataset_train,trainer)
 
