@@ -1,6 +1,7 @@
 import warnings
 import os
 import json
+import shutil
 from tqdm import tqdm
 from typing import Dict, List, Optional, Literal
 
@@ -19,13 +20,24 @@ import torch_geometric.transforms as T
 from Encoding import ToHeteroData,ConstructTopology,TopologyFromPlausibleTopology, ToPytorchData
 from ML_functions import LearnedSimulator,Trainer, NormalizeData,Rescale, DataMask, GetScales
 
-def MakeDIRs(dataset_name):
+def CopyScales(dataset_name,model_ident):
     root = os.getcwd()
-    model_dir = os.path.join(root,"Models",dataset_name)
+    data_proc_dir = os.path.join(root,"Data","processed",dataset_name)
+    models_dir = os.path.join(root,"Models",dataset_name)
+    model_dir = os.path.join(models_dir,f"{dataset_name}_{model_ident}")
+    scale_path = os.path.join(data_proc_dir,f"{dataset_name}_Hetero_scales.json")
+
+    shutil.copy(scale_path, model_dir)
+
+def MakeDIRs(dataset_name:str,model_ident:str):
+    root = os.getcwd()
+    models_dir = os.path.join(root,"Models",dataset_name)
+    model_dir = os.path.join(models_dir,f"{dataset_name}_{model_ident}")
     data_raw_dir = os.path.join(root,"Data","raw",dataset_name)
     data_proc_dir = os.path.join(root,"Data","processed",dataset_name)
+    scale_path = os.path.join(data_proc_dir,f"{dataset_name}_Hetero_scales.json")
 
-    for dir in [model_dir,data_proc_dir]:
+    for dir in [models_dir,data_proc_dir,model_dir]:
         if not os.path.isdir(dir): os.mkdir(dir)
 
 class LearnedSimulatorHetero(LearnedSimulator):
@@ -79,9 +91,10 @@ class EdgeConv(MessagePassing):
         return self.edge_mlp(message)
 
 class HeteroDEMGNN(torch.nn.Module):
-    def __init__(self,dataset_name,metadata, msg_num,emb_dim,hidden_dim,num_layers):
+    def __init__(self,dataset_name,model_ident,metadata, msg_num,emb_dim,hidden_dim,num_layers):
         super().__init__()
         self.dataset_name = dataset_name
+        self.model_ident = model_ident
         self.scale_name = f"{dataset_name}_Hetero"
         self.nodetypes = metadata[0]
         self.edgetypes = metadata[1]
@@ -145,8 +158,8 @@ class HeteroDEMGNN(torch.nn.Module):
     def UpdateGeometry(self,data, displacement, normal):
         transform = T.Compose([CartesianHetero(cat= False),
                                DistanceHetero(cat = True),
-                               NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=True)])
-        rescale_output = Rescale(self.dataset_name,self.scale_name)
+                               NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=True,model_ident=self.model_ident)])
+        rescale_output = Rescale(self.dataset_name,self.model_ident,self.scale_name)
 
         displacement = rescale_output(displacement)
         data.pos_dict['particle']+=displacement
@@ -234,9 +247,14 @@ class DistanceHetero(CartesianHetero):
         return data
 
 class NormalizeHeteroData(NormalizeData):
-    def __init__(self, dataset_name:str, scale_name:str, edge_only:bool):
+    def __init__(self, dataset_name:str, scale_name:str, edge_only:bool,model_ident:str=None):
         self.edge_only = edge_only
-        super().__init__(dataset_name, scale_name) 
+        if model_ident is None:
+            filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales")
+        else:
+            filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{model_ident}",f"{dataset_name}_Hetero_scales")
+        with open(f"{filename}.json") as json_file: 
+            self.scales = json.load(json_file)
     
     def forward(self, data: HeteroData) -> HeteroData:
         device = data['particle'].x.device
@@ -324,7 +342,7 @@ class HeteroDEMDataset(InMemoryDataset):
         data_agr,bc_agr= [self.LoadSimTop(i) for i in [0,2]]
         if self.forward_step_max > 0:
             transform = T.Compose([T.ToUndirected(),CartesianHetero(False),DistanceHetero(),NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=False)])
-            Simulation = LearnedSimulatorHetero(self.model,scale_function=Rescale(self.dataset_name,self.scale_name),transform=transform)
+            Simulation = LearnedSimulatorHetero(self.model,scale_function=Rescale(self.dataset_name,self.model_ident,self.scale_name),transform=transform)
             self.Rollout_step = Simulation.Rollout_Step
 
         for i, (sim_data, bc) in tqdm(enumerate(zip(data_agr,bc_agr)),total=bc_agr.shape[0]):
@@ -368,7 +386,12 @@ class HeteroDEMDataset(InMemoryDataset):
         print(f"Normalizing {self.dataset_type} data")    
         if self.dataset_type == "train" and self.forward_step_max == 0:
             GetScales(Batch.from_data_list(data_list),self.dataset_name,self.scale_name,hetero=True)
-        self.normalize = NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=False)
+            
+        if  self.forward_step_max == 0:
+            self.normalize = NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=False)
+        else:
+            self.normalize = NormalizeHeteroData(self.dataset_name,self.scale_name,edge_only=False,model_ident=self.model_ident)
+        
         data_list = [self.normalize(data) for data in tqdm(data_list)]
 
         self.save(data_list, self.processed_file_names[0])
@@ -387,7 +410,7 @@ class TrainHetero():
 
     def __call__(self,dataset_train,dataset_val=None,retrain:bool=False):
         model,msg = GetHeteroModel(self.dataset_name,self.model_ident,dataset_train[0].metadata(),
-                                self.msg_num,self.emb_dim,self.num_layers,retrain)
+                                   self.msg_num,self.emb_dim,self.num_layers,retrain)
         
         if msg == 'Loaded model' and retrain == True:
             raise Exception('pre-trained model already exists')
@@ -408,7 +431,7 @@ class ForwardTrainHetero():
         self.batch_size = batch_size
         self.lr = lr
         self.epochs = epochs
-        self.scale_function = Rescale(dataset_name,scale_name=f"{dataset_name}_Hetero")
+        self.scale_function = Rescale(dataset_name,model_ident,scale_name=f"{dataset_name}_Hetero")
 
     def ValidateNoisyDataEquality(self):
         for data_noisy in self.dataset_noisy:
@@ -600,13 +623,11 @@ def GetHeteroModel(dataset_name,model_ident,metadata=None,
         model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}")
     
     model_info_path = f"{model_path}_ModelInfo.json"
-    print(os.path.exists(model_path)) 
-    print(os.path.exists(model_info_path))
     if os.path.exists(model_path) and os.path.exists(model_info_path) and retrain==False: 
         
         with open(model_info_path) as json_file: settings = json.load(json_file)
 
-        model = HeteroDEMGNN(dataset_name,metadata,
+        model = HeteroDEMGNN(dataset_name,model_ident,metadata,
                              msg_num=settings["msg_num"],
                              emb_dim=settings["emb_dim"],
                              hidden_dim=settings["hidden_dim"],
@@ -617,6 +638,6 @@ def GetHeteroModel(dataset_name,model_ident,metadata=None,
     else: 
         msg = "No Trained model"
         print(msg)
-        model = HeteroDEMGNN(dataset_name,metadata,msg_num,emb_dim,emb_dim,num_layers)
+        model = HeteroDEMGNN(dataset_name,model_ident,metadata,msg_num,emb_dim,emb_dim,num_layers)
 
     return model, msg

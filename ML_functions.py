@@ -145,8 +145,8 @@ def GetScales(dataset_batch,dataset_name:str,scale_name:str,hetero:bool=False,sa
 class Rescale:
     """Rescale output based on standardization during training
     """
-    def __init__(self,dataset_name,scale_name):
-        self.filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales")
+    def __init__(self,dataset_name,model_ident,scale_name):
+        self.filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{model_ident}",f"{scale_name}_scales")
         with open(f"{self.filename}.json") as json_file: 
             self.scales = json.load(json_file)
         self.y_mean = self.scales["y_mean"]
@@ -288,7 +288,7 @@ class DEM_Dataset(InMemoryDataset):
 
         if self.forward_step_max > 0:
             Simulation = LearnedSimulator(self.model,
-                                          scale_function=Rescale(self.dataset_name,self.scale_name),
+                                          scale_function=Rescale(self.dataset_name,self.model_ident,self.scale_name),
                                           transform = T.Compose([self.pre_transform,NormalizeData(self.dataset_name,self.scale_name)]))
             self.Rollout_step = Simulation.Rollout_Step
 
@@ -400,7 +400,6 @@ class Trainer:
         self.model_name = f"{dataset_name}_{model_ident}"
 
         self.save_dir = os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name)
-        os.mkdir(self.save_dir)
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print("Device: ", self.device)
