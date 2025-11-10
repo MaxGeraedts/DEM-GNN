@@ -432,6 +432,7 @@ class ForwardTrainHetero():
         self.lr = lr
         self.epochs = epochs
         self.scale_function = Rescale(dataset_name,model_ident,scale_name=f"{dataset_name}_Hetero")
+        self.model_sfx ='train'
 
     def ValidateNoisyDataEquality(self):
         for data_noisy in self.dataset_noisy:
@@ -451,9 +452,9 @@ class ForwardTrainHetero():
 
     def GetModel(self,push_idx):
         if push_idx == 0:
-            model,msg = GetHeteroModel(self.dataset_name,self.model_ident,self.model_metadata)
+            model,msg = GetHeteroModel(self.dataset_name,self.model_ident,self.model_sfx,self.model_metadata)
         else:
-            model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push",self.model_metadata)
+            model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push",self.model_sfx,self.model_metadata)
 
         if msg != 'Loaded model':
             raise Exception('Failed to load pre-trained model')
@@ -466,26 +467,25 @@ class ForwardTrainHetero():
                                                 bundle_size=self.bundle_size,
                                                 model=model,
                                                 model_ident=self.model_ident,
-                                                overfit_sim_idx=self.dataset_train_clean.overfit_sim_idx,
-                                                overfit_time_idx=self.dataset_train_clean.overfit_time_idx,
+                                                overfit_sim_idx=self.dataset_clean.overfit_sim_idx,
+                                                overfit_time_idx=self.dataset_clean.overfit_time_idx,
                                                 push_forward_step_max=push_forward_step_max)
         
         data_list_clean = [data for data in self.dataset_clean]
         data_list_noisy = [data for data in self.dataset_noisy]
         dataset = InMemoryDataset()
         dataset.data, dataset.slices = dataset.collate(data_list_clean+data_list_noisy)
-        dataset_train, dataset_val = torch.utils.data.random_split(dataset,[0.85,0.15])
-        return dataset_train, dataset_val
+        return dataset
         
     def __call__(self,push_idx:int=0,push_forward_step_max:int=0,validate_eq:bool=False):
         model = self.GetModel(push_idx)
-        self.dataset_train,self.dataset_val = self.AugmentDataset(model,push_forward_step_max)
+        self.dataset_train = self.AugmentDataset(model,push_forward_step_max)
 
         if validate_eq is True: self.ValidateNoisyDataEquality()
 
         print(f"Training {self.dataset_name}_{self.model_ident}_Push{push_idx}")
         trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,model_ident=f"{self.model_ident}_Push")    
-        trainer.train_loop(self.dataset_train,self.dataset_val)
+        trainer.train_loop(self.dataset_train)
         SaveTrainingInfo(self.dataset_noisy,trainer)
 
 class HeteroConvEdge(torch.nn.Module):
@@ -608,7 +608,7 @@ class HeteroConvEdge(torch.nn.Module):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(num_relations={len(self.convs)})'
     
-def GetHeteroModel(dataset_name,model_ident,metadata=None,
+def GetHeteroModel(dataset_name,model_ident,model_sfx=None,metadata=None,
                    msg_num=3,emb_dim=64,num_layers=2,retrain:bool=False):
     model_name = f"{dataset_name}_{model_ident}"
 
@@ -618,11 +618,13 @@ def GetHeteroModel(dataset_name,model_ident,metadata=None,
                 ('wallpoint', 'rev_PW_contact', 'particle')])
     
     if model_name[-4:] == "Push":
-        model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name[:-5]}")
+        model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name[:-5]}")
     else:
-        model_path = os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}")
-    
-    model_info_path = f"{model_path}_ModelInfo.json"
+        model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}_{model_sfx}")
+
+    model_info_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}_ModelInfo.json")
+    print(model_path)
+    print(model_info_path)
     if os.path.exists(model_path) and os.path.exists(model_info_path) and retrain==False: 
         
         with open(model_info_path) as json_file: settings = json.load(json_file)

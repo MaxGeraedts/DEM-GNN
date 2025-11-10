@@ -399,7 +399,10 @@ class Trainer:
         self.model_ident = model_ident
         self.model_name = f"{dataset_name}_{model_ident}"
 
+        
         self.save_dir = os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name)
+        if "Push" in self.model_name: 
+            self.save_dir = self.save_dir[:-5]
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print("Device: ", self.device)

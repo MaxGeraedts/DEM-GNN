@@ -3,16 +3,16 @@ from torch.utils.data import random_split
 
 dataset_name    = 'N400_MonoNeo'
 model_ident     = 'Overfit64'
-retrain         = True
+retrain         = False
 overfit         = True
-force_reload    = True
+force_reload    = False
 
 batch_size      = 1
 lr              = 0.01
-epochs          = 1000
+epochs          = 0
 
-push_forward_loops = 0
-push_forward_epochs = 2000
+push_forward_loops = 3
+push_forward_epochs = 1000
 push_forward_step_max_list:list = [15]*push_forward_loops
 
 msg_num = 4
