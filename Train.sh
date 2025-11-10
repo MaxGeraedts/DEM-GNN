@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=N400_Training
-#SBATCH --output=./Jobs/N400_64-%j.log
+#SBATCH --job-name=Overfit_Training
+#SBATCH --output=./Jobs/Overfit_64-%j.log
 #SBATCH --partition=be.gpuresearch.q,tue.gpu.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
