@@ -618,13 +618,12 @@ def GetHeteroModel(dataset_name,model_ident,model_sfx=None,metadata=None,
                 ('wallpoint', 'rev_PW_contact', 'particle')])
     
     if model_name[-4:] == "Push":
-        model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name[:-5]}")
+        model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name[:-5],f"{model_name[:-5]}")
     else:
         model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}_{model_sfx}")
 
     model_info_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}_ModelInfo.json")
-    print(model_path)
-    print(model_info_path)
+
     if os.path.exists(model_path) and os.path.exists(model_info_path) and retrain==False: 
         
         with open(model_info_path) as json_file: settings = json.load(json_file)

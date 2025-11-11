@@ -505,7 +505,7 @@ def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4
     model_name = f"{dataset_name}_{model_ident}"
     try: 
         if model_name[-4:] == "Push":
-            model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name[:-5]}")
+            model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name[:-5],f"{model_name[:-5]}")
         else:
             model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}")
             
@@ -562,6 +562,10 @@ def SaveTrainingInfo(dataset,trainer):
     for attr in trainer_attr:
         if hasattr(trainer,attr): TrainingInfo[attr] = getattr(trainer,attr)
 
-    filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,trainer.model_name,f"{trainer.model_name}_TrainingInfo.json")
+    model_name = trainer.model_name
+    if model_name[-4:] == "Push":
+        filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,model_name[:-5],f"{model_name[:-5]}_TrainingInfo.json")
+    else:
+        filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,model_name,f"{model_name}_TrainingInfo.json")
     with open(filename,'w') as f: 
         json.dump(TrainingInfo,f)
