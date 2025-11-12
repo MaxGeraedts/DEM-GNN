@@ -10,10 +10,10 @@ force_reload    = True
 
 batch_size      = 8
 lr              = 0.01
-epochs          = 1
+epochs          = 1000
 
 push_forward_loops = 5
-push_forward_epochs = 1
+push_forward_epochs = 1000
 push_forward_step_max_list:list = [15]*push_forward_loops
 
 msg_num = 5
