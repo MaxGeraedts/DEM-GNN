@@ -2,17 +2,18 @@ from HeteroML import HeteroDEMDataset, TrainHetero,ForwardTrainHetero, MakeDIRs,
 from torch.utils.data import random_split
 
 dataset_name    = 'N400_MonoNeo'
-model_ident     = 'Overfit64_2'
+model_ident     = 'Overfit64_3'
+model_sfx       = 'val'
 retrain         = False
 overfit         = True
 force_reload    = True
 
-batch_size      = 1
+batch_size      = 8
 lr              = 0.01
-epochs          = 1000
+epochs          = 1
 
 push_forward_loops = 5
-push_forward_epochs = 1000
+push_forward_epochs = 1
 push_forward_step_max_list:list = [15]*push_forward_loops
 
 msg_num = 5
@@ -32,7 +33,7 @@ CopyScales(dataset_name,model_ident)
 
 if epochs>0:
     train = TrainHetero(dataset_name,model_ident,batch_size,lr,epochs,msg_num,emb_dim,num_layers)
-    train(dataset_train, dataset_val,retrain)
+    train(dataset_train, dataset_val,retrain,model_sfx)
 
 if push_forward_loops>0:
     train_forward = ForwardTrainHetero(dataset_name,model_ident,"train",dataset_train,batch_size,lr,push_forward_epochs,bundle_size=1)

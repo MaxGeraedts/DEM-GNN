@@ -246,13 +246,14 @@ class DistanceHetero(CartesianHetero):
             data[edge_type].edge_attr = dist
         return data
 
+from ML_functions import RemovePushFromName
 class NormalizeHeteroData(NormalizeData):
     def __init__(self, dataset_name:str, scale_name:str, edge_only:bool,model_ident:str=None):
         self.edge_only = edge_only
         if model_ident is None:
             filename = os.path.join(os.getcwd(),"Data","processed",dataset_name,f"{scale_name}_scales")
         else:
-            filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{model_ident}",f"{dataset_name}_Hetero_scales")
+            filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{RemovePushFromName(model_ident)}",f"{dataset_name}_Hetero_scales")
         with open(f"{filename}.json") as json_file: 
             self.scales = json.load(json_file)
     
@@ -408,8 +409,8 @@ class TrainHetero():
         self.emb_dim = emb_dim
         self.num_layers = num_layers
 
-    def __call__(self,dataset_train,dataset_val=None,retrain:bool=False):
-        model,msg = GetHeteroModel(self.dataset_name,self.model_ident,dataset_train[0].metadata(),
+    def __call__(self,dataset_train,dataset_val=None,retrain:bool=False,model_sfx:str=None):
+        model,msg = GetHeteroModel(self.dataset_name,self.model_ident,model_sfx,dataset_train[0].metadata(),
                                    self.msg_num,self.emb_dim,self.num_layers,retrain)
         
         if msg == 'Loaded model' and retrain == True:
@@ -454,7 +455,7 @@ class ForwardTrainHetero():
         if push_idx == 0:
             model,msg = GetHeteroModel(self.dataset_name,self.model_ident,self.model_sfx,self.model_metadata)
         else:
-            model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push",self.model_sfx,self.model_metadata)
+            model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push{push_idx-1}",self.model_sfx,self.model_metadata)
 
         if msg != 'Loaded model':
             raise Exception('Failed to load pre-trained model')
@@ -484,7 +485,7 @@ class ForwardTrainHetero():
         if validate_eq is True: self.ValidateNoisyDataEquality()
 
         print(f"Training {self.dataset_name}_{self.model_ident}_Push{push_idx}")
-        trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,model_ident=f"{self.model_ident}_Push")    
+        trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,model_ident=f"{self.model_ident}_Push{push_idx}")    
         trainer.train_loop(self.dataset_train)
         SaveTrainingInfo(self.dataset_noisy,trainer)
 
@@ -617,15 +618,13 @@ def GetHeteroModel(dataset_name,model_ident,model_sfx=None,metadata=None,
                 ('particle', 'PW_contact', 'wallpoint'),
                 ('wallpoint', 'rev_PW_contact', 'particle')])
     
-    if model_name[-4:] == "Push":
-        model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name[:-5],f"{model_name[:-5]}")
-    else:
-        model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}_{model_sfx}")
 
-    model_info_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}_ModelInfo.json")
-
+    model_path = os.path.join(os.getcwd(),"Models",dataset_name,RemovePushFromName(model_name),f"{model_name}_{model_sfx}")
+    model_info_path = os.path.join(os.getcwd(),"Models",dataset_name,RemovePushFromName(model_name),f"{RemovePushFromName(model_name)}_ModelInfo.json")
+    
+    print(model_path)
+    print(model_info_path)
     if os.path.exists(model_path) and os.path.exists(model_info_path) and retrain==False: 
-        
         with open(model_info_path) as json_file: settings = json.load(json_file)
 
         model = HeteroDEMGNN(dataset_name,model_ident,metadata,

@@ -146,7 +146,7 @@ class Rescale:
     """Rescale output based on standardization during training
     """
     def __init__(self,dataset_name,model_ident,scale_name):
-        self.filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{model_ident}",f"{scale_name}_scales")
+        self.filename = os.path.join(os.getcwd(),"Models",dataset_name,f"{dataset_name}_{RemovePushFromName(model_ident)}",f"{scale_name}_scales")
         with open(f"{self.filename}.json") as json_file: 
             self.scales = json.load(json_file)
         self.y_mean = self.scales["y_mean"]
@@ -397,12 +397,9 @@ class Trainer:
         self.loss_fn = loss_fn
         self.dataset_name = dataset_name
         self.model_ident = model_ident
-        self.model_name = f"{dataset_name}_{model_ident}"
 
-        
-        self.save_dir = os.path.join(os.getcwd(),"Models",self.dataset_name,self.model_name)
-        if "Push" in self.model_name: 
-            self.save_dir = self.save_dir[:-5]
+        self.model_name = f"{dataset_name}_{model_ident}"
+        self.save_dir = os.path.join(os.getcwd(),"Models",self.dataset_name,RemovePushFromName(self.model_name))
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print("Device: ", self.device)
@@ -533,6 +530,13 @@ def GetModel(dataset_name,model_ident,msg_num=3,emb_dim=64,node_dim=7,edge_dim=4
                                    num_layers=num_layers)
     return model, msg
 
+def RemovePushFromName(model_name):
+    if "_Push" in model_name:
+        idx = model_name.find("_Push")
+        return model_name[:idx]
+    else:
+        return model_name
+    
 def SaveModelInfo(model,dataset_name:str,model_ident:str,hetero:bool=False):
     """Saves Model parameters to a dictionary JSON file
 
@@ -563,9 +567,6 @@ def SaveTrainingInfo(dataset,trainer):
         if hasattr(trainer,attr): TrainingInfo[attr] = getattr(trainer,attr)
 
     model_name = trainer.model_name
-    if model_name[-4:] == "Push":
-        filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,model_name[:-5],f"{model_name[:-5]}_TrainingInfo.json")
-    else:
-        filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,model_name,f"{model_name}_TrainingInfo.json")
+    filename = os.path.join(os.getcwd(),"Models",trainer.dataset_name,RemovePushFromName(model_name),f"{model_name}_TrainingInfo.json")
     with open(filename,'w') as f: 
         json.dump(TrainingInfo,f)
