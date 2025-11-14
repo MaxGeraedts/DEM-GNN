@@ -8,7 +8,7 @@ retrain         = False
 overfit         = False
 force_reload    = False
 
-batch_size      = 64
+batch_size      = 32
 lr              = 0.01
 epochs          = 0
 
