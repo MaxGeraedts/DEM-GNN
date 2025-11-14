@@ -36,7 +36,7 @@ if epochs>0:
     train(dataset_train,dataset_val,retrain,model_sfx)
 
 if push_forward_loops>0:
-    train_forward = ForwardTrainHetero(dataset_name,model_ident,"train",dataset_train,batch_size,lr,push_forward_epochs,bundle_size=1)
+    train_forward = ForwardTrainHetero(dataset_name,model_ident,model_sfx,dataset_train,batch_size,lr,push_forward_epochs,bundle_size=1)
 
 for push_idx, push_forward_step_max in enumerate(push_forward_step_max_list):
     train_forward(push_idx,push_forward_step_max,validate_eq=True)
