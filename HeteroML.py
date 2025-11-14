@@ -418,8 +418,9 @@ class TrainHetero():
         
         trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,self.model_ident)
         SaveModelInfo(model,self.dataset_name,self.model_ident,hetero=True)
-        trainer.train_loop(dataset_train,dataset_val)
         SaveTrainingInfo(dataset_train,trainer)
+        trainer.train_loop(dataset_train,dataset_val)
+        
 
 from ML_functions import Rescale
 class ForwardTrainHetero():
@@ -622,8 +623,6 @@ def GetHeteroModel(dataset_name,model_ident,model_sfx=None,metadata=None,
     model_path = os.path.join(os.getcwd(),"Models",dataset_name,RemovePushFromName(model_name),f"{model_name}_{model_sfx}")
     model_info_path = os.path.join(os.getcwd(),"Models",dataset_name,RemovePushFromName(model_name),f"{RemovePushFromName(model_name)}_ModelInfo.json")
     
-    print(model_path)
-    print(model_info_path)
     if os.path.exists(model_path) and os.path.exists(model_info_path) and retrain==False: 
         with open(model_info_path) as json_file: settings = json.load(json_file)
 
@@ -634,7 +633,7 @@ def GetHeteroModel(dataset_name,model_ident,model_sfx=None,metadata=None,
                              num_layers=settings["num_layers"])
         model.load_state_dict(torch.load(model_path))
         msg = "Loaded model"
-        print(f"{msg} {model_name}")
+        print(f"{msg} {model_name}_{model_sfx}")
     else: 
         msg = "No Trained model"
         print(msg)

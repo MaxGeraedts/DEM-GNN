@@ -217,10 +217,11 @@ def NormalizedResultantForce(data):
     Fres_size_normalized  = Fres_norm/F_vectors_norm_sum
     return Fres_size_normalized
 
+from HeteroML import GetHeteroModel,LearnedSimulatorHetero, CartesianHetero,DistanceHetero, NormalizeHeteroData
 def AggregatedRollouts(model,AggregatedArgs:tuple,test_dataset_name=None,device:str='cuda'):
-    scale_name = f"{test_dataset_name}_bund{model.bundle_size}"
-    transform = T.Compose([T.Cartesian(False),T.Distance(norm=False,cat=True),NormalizeData(test_dataset_name,scale_name)])
-    Simulation = LearnedSimulator(model, scale_function = Rescale(test_dataset_name,scale_name),transform = transform,device=device)
+    scale_name = f"{test_dataset_name}_Hetero"
+    transform = T.Compose([T.ToUndirected(),CartesianHetero(False),DistanceHetero(),NormalizeHeteroData(test_dataset_name,scale_name,edge_only=False,model_ident=model.model_ident)])
+    Simulation = LearnedSimulatorHetero(model, scale_function = Rescale(test_dataset_name,model.model_ident,scale_name),transform = transform,device='cpu')
 
     datalist_ML = []
     datalist_GT = []

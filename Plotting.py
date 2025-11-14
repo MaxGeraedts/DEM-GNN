@@ -285,19 +285,21 @@ def PlotStressComparison(Rollout:Type[LearnedSimulator],dims:list=[0,1,2],plot_m
 
     return fig, axs
 
+from ML_functions import RemovePushFromName
 def PlotTrainingLoss(dataset_name,model_ident,push=True,validate:bool=True):
 
     model_name = f"{dataset_name}_{model_ident}"
-    training_loss = np.load(os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}_Training_Loss.npy"))
-    validation_loss = np.load(os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}_Validation_Loss.npy"))
+    model_dir = os.path.join(os.getcwd(),"Models",dataset_name,RemovePushFromName(model_name))
+    training_loss = np.load(os.path.join(model_dir,f"{model_name}_Training_Loss.npy"))
+    validation_loss = np.load(os.path.join(model_dir,f"{model_name}_Validation_Loss.npy"))
 
-    if push is True:
-        model_name = f"{dataset_name}_{model_ident}_Push"
-        training_loss_push = np.load(os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}_Training_Loss.npy"))
-        validation_loss_push = np.load(os.path.join(os.getcwd(),"Models",dataset_name,f"{model_name}_Validation_Loss.npy"))
-
-        training_loss = np.concatenate([training_loss,training_loss_push],axis=0)
-        validation_loss = np.concatenate([validation_loss,validation_loss_push],axis=0)
+    for push_idx in range(10):
+        train_path = os.path.join(model_dir,f"{model_name}_Push{push_idx}_Training_Loss.npy")
+        val_path = os.path.join(model_dir,f"{model_name}_Push{push_idx}_Validation_Loss.npy")
+        if push is True and os.path.exists(train_path):
+            training_loss = np.concatenate([training_loss,np.load(train_path)],axis=0)
+        if push is True and validate is True and os.path.exists(val_path):
+            validation_loss = np.concatenate([validation_loss,np.load(val_path)],axis=0)
 
     plt.rcParams["font.family"] = "Times New Roman"
     fig, axs = plt.subplots(1,2,figsize=(12,5))
