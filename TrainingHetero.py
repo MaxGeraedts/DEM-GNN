@@ -6,7 +6,7 @@ model_ident     = 'Emb256'
 model_sfx       = 'val'
 retrain         = False
 overfit         = False
-force_reload    = True
+force_reload    = False
 
 batch_size      = 32
 lr              = 0.01
