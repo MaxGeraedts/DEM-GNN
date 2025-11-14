@@ -5,7 +5,7 @@ dataset_name    = 'N400_MonoNeo'
 model_ident     = 'Emb128'
 model_sfx       = 'val'
 retrain         = False
-overfit         = True
+overfit         = False
 force_reload    = True
 
 batch_size      = 32
