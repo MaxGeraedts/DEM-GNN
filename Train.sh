@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=emb256_Training
-#SBATCH --output=./Jobs/emb256-%j.log
+#SBATCH --job-name=64Push_Training
+#SBATCH --output=./Jobs/64Push-%j.log
 #SBATCH --partition=be.gpuresearch.q,tue.gpu.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
