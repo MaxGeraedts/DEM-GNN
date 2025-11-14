@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=Overfit3_Training
-#SBATCH --output=./Jobs/Overfit_3-%j.log
+#SBATCH --job-name=emb32_Training
+#SBATCH --output=./Jobs/emb32-%j.log
 #SBATCH --partition=be.gpuresearch.q,tue.gpu.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
 #SBATCH --mem-per-gpu=32G
-#SBATCH --time=48:00:00
+#SBATCH --time=96:00:00
 #SBATCH --mail-user=m.geraedts1@student.tue.nl
 #SBATCH --mail-type=END
 
