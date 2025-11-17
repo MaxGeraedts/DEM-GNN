@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=Emb128_Training
-#SBATCH --output=./Jobs/Emb128-%j.log
+#SBATCH --job-name=Emb64_2_Training
+#SBATCH --output=./Jobs/Emb64_2-%j.log
 #SBATCH --partition=be.gpuresearch.q,tue.gpu.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
