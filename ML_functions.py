@@ -438,12 +438,12 @@ class Trainer:
         val_loss_path = os.path.join(self.save_dir,f"{self.model_name}_Validation_Loss.npy")
 
         if os.path.isfile(train_loss_path): 
-            train_loss = np.load(train_loss_path).tolist()
+            train_loss = np.load(train_loss_path,allow_pickle=True).tolist()
         else: 
             train_loss =[]
 
         if os.path.isfile(val_loss_path): 
-            val_loss = np.load(val_loss_path).tolist()
+            val_loss = np.load(val_loss_path,allow_pickle=True).tolist()
         else: 
             val_loss = []
         
@@ -479,22 +479,23 @@ class Trainer:
             mean_train_loss, train_loss = self.batch_loop(self.train_dl,train_loss,self.optimizer)
 
             self.model.eval()
-            if dataset_val is not None:
-                with torch.inference_mode(): mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss)
-                best_model_loss_train = self.save_best_model(mean_train_loss,best_model_loss_train,"train")
-                best_model_loss_val = self.save_best_model(mean_val_loss,best_model_loss_val,"val")
+            with torch.inference_mode(): 
+                if dataset_val is not None:
+                    mean_val_loss, val_loss = self.batch_loop(self.val_dl,val_loss)
+                    best_model_loss_train = self.save_best_model(mean_train_loss,best_model_loss_train,"train")
+                    best_model_loss_val = self.save_best_model(mean_val_loss,best_model_loss_val,"val")
 
-            if dataset_val is None:
-                best_model_loss_train = self.save_best_model(mean_train_loss,best_model_loss_train,"train")
-                mean_val_loss = None
-            
-            if epoch % 25 == 0: 
-                self.save_loss(train_loss,val_loss)
-            
-            if epoch % 100 == 0:
-                self.save_statedict(f"{self.model_name}_{epoch}")
+                if dataset_val is None:
+                    best_model_loss_train = self.save_best_model(mean_train_loss,best_model_loss_train,"train")
+                    mean_val_loss = None
+                
+                if epoch % 25 == 0: 
+                    self.save_loss(train_loss,val_loss)
+                
+                if epoch % 100 == 0:
+                    self.save_statedict(f"{self.model_name}_{epoch}")
 
-            self.print_results(epoch,mean_train_loss,mean_val_loss)
+                self.print_results(epoch,mean_train_loss,mean_val_loss)
 
         self.save_loss(train_loss,val_loss)
 

@@ -1,11 +1,11 @@
 from HeteroML import HeteroDEMDataset, TrainHetero,ForwardTrainHetero, MakeDIRs, CopyScales
 from torch.utils.data import random_split
 
-dataset_name    = 'N400_MonoNeo'
-model_ident     = 'Emb128'
+dataset_name    = 'N400_MonoNeo' 
+model_ident     = 'Overfittest'
 model_sfx       = 'val'
 retrain         = False
-overfit         = False
+overfit         = True
 force_reload    = True
 
 batch_size      = 64
@@ -16,19 +16,14 @@ push_forward_loops = 0
 push_forward_epochs = 500
 push_forward_step_max_list:list = [15]*push_forward_loops
 
-msg_num = 5
-emb_dim = 128
+msg_num = 3
+emb_dim = 64
 num_layers = 3
 
 MakeDIRs(dataset_name,model_ident)
-if overfit == True:
-    dataset_train = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=force_reload,overfit_sim_idx=0)
-    dataset_val = None
-    #dataset_train, dataset_val = random_split(dataset,[0.85,0.15])
-else:
-    dataset = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=force_reload)
-    #dataset_val = HeteroDEMDataset(dataset_name,dataset_type='validate',force_reload=force_reload)
-    dataset_train,dataset_val = random_split(dataset,[0.85,0.15])
+dataset = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=force_reload,overfit_sim_idx=0)
+#dataset_val = HeteroDEMDataset(dataset_name,dataset_type='validate',force_reload=force_reload)
+dataset_train,dataset_val = random_split(dataset,[0.85,0.15])
 CopyScales(dataset_name,model_ident)
 
 if epochs>0:
