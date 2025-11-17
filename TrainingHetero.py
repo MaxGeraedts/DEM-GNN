@@ -6,6 +6,7 @@ model_ident     = 'Emb64_2'
 model_sfx       = 'val'
 retrain         = True
 force_reload    = True
+overfit_sim_idx = None
 
 batch_size      = 64
 lr              = 0.01
@@ -20,7 +21,7 @@ emb_dim = 64
 num_layers = 3
 
 MakeDIRs(dataset_name,model_ident)
-dataset = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=force_reload,overfit_sim_idx=0)
+dataset = HeteroDEMDataset(dataset_name,dataset_type='train',force_reload=force_reload,overfit_sim_idx=overfit_sim_idx)
 #dataset_val = HeteroDEMDataset(dataset_name,dataset_type='validate',force_reload=force_reload)
 dataset_train,dataset_val = random_split(dataset,[0.85,0.15])
 CopyScales(dataset_name,model_ident)
