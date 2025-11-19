@@ -1,8 +1,8 @@
 from HeteroML import HeteroDEMDataset, TrainHetero,ForwardTrainHetero, MakeDIRs, CopyScales
 from torch.utils.data import random_split
 
-dataset_name    = 'N400_MonoNeo' 
-model_ident     = 'Emb32_2'
+dataset_name    = '2Sphere' 
+model_ident     = 'Emb64'
 model_sfx       = 'val'
 retrain         = True
 force_reload    = True
@@ -10,14 +10,14 @@ overfit_sim_idx = None
 
 batch_size      = 64
 lr              = 0.01
-epochs          = 350
+epochs          = 500
 
 push_forward_loops = 0
 push_forward_epochs = 500
 push_forward_step_max_list:list = [15]*push_forward_loops
 
-msg_num = 5
-emb_dim = 32
+msg_num = 3
+emb_dim = 64
 num_layers = 3
 
 MakeDIRs(dataset_name,model_ident)
