@@ -1,7 +1,7 @@
 from HeteroML import HeteroDEMDataset, TrainHetero,ForwardTrainHetero, MakeDIRs, CopyScales
 from torch.utils.data import random_split
 
-dataset_name    = '2Sphere' 
+dataset_name    = 'BCC' 
 model_ident     = 'Emb64'
 model_sfx       = 'val'
 retrain         = True

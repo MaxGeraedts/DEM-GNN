@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=2Sphere_Training
-#SBATCH --output=./Jobs/2Sphere-%j.log
+#SBATCH --job-name=BCC_Training
+#SBATCH --output=./Jobs/BCC-%j.log
 #SBATCH --partition=be.gpuresearch.q,tue.gpu.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
