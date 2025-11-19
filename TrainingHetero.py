@@ -2,7 +2,7 @@ from HeteroML import HeteroDEMDataset, TrainHetero,ForwardTrainHetero, MakeDIRs,
 from torch.utils.data import random_split
 
 dataset_name    = 'N400_MonoNeo'
-model_ident     = 'Emb64'
+model_ident     = 'Emb64_redo'
 retrain         = True
 overfit         = False
 force_reload    = True
