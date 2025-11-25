@@ -9,6 +9,23 @@ from ML_functions import DEM_Dataset,LearnedSimulator, NormalizeData, GetModel, 
 from Encoding import NumpyGroupby, ProjectPointsToHyperplane
 from IPython.display import clear_output
 
+from ML_functions import RemovePushFromName
+class SaveLoadMNRF():
+    def __init__(self,dataset_name,model_name):
+        dataset_path = os.path.join(os.getcwd(),"Models",dataset_name,)
+        model_path = os.path.join(dataset_path,RemovePushFromName(model_name))
+        self.GT_path = os.path.join(dataset_path,'MNRF_GT.npy')
+        self.ML_path = os.path.join(model_path,'MNRF_ML.npy')
+
+    def save(self,MNRF_gt,MNRF_ml):
+        np.save(self.GT_path,MNRF_gt)
+        np.save(self.ML_path,MNRF_ml)
+
+    def load(self):
+        MNRF_gt = np.load(self.GT_path)
+        MNRF_ml = np.load(self.ML_path)
+        return MNRF_gt,MNRF_ml
+    
 def GetAllContactpoints(data:object):
     real_edge = data.edge_index[:,data.edge_mask]
     origins = real_edge[0,:]
