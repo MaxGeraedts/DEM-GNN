@@ -219,15 +219,15 @@ def PlotFres(Fsum_GT,Fsum_ML):
     plt.legend()
     return fig
 
-def PlotFnormDistribution(ax,quantiles,Fnorm,color,fillcolor):
+def PlotFnormDistribution(ax,quantiles,Fnorm,color,fillcolor,linestyle,lbl_suffix:str=None):
     t = np.arange(Fnorm.shape[0])
     for i,quantile in enumerate(quantiles):
         quantmin  = np.percentile(Fnorm,quantile,1)
         quantmax = np.percentile(Fnorm,(100-quantile),1)
         if quantile == 50:
-            ax.plot(t,quantmin,'-',color=f"tab:{color}",label="Median")
+            ax.plot(t,quantmin,'-',color=f"tab:{color}",label=f"Median{lbl_suffix}",linestyle=linestyle)
         else:
-            ax.fill_between(x=t, y1=quantmin, y2=quantmax, alpha=0.2, color=fillcolor,label=f"{100-quantile}%")
+            ax.fill_between(x=t, y1=quantmin, y2=quantmax, alpha=0.2, color=fillcolor,label=f"Range{lbl_suffix}")
 
 def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles,sharey=False):
     fig, ax = plt.subplots(1,2,figsize=(12, 5),sharey=sharey,sharex=True)
@@ -235,15 +235,15 @@ def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles,sharey=False):
     fig.suptitle("Evolution of the Normalized Mean Resultant Force Distribution",
                 fontname="Times New Roman",
                 fontweight='bold',
-                fontsize=12)
+                fontsize=10)
     
-    PlotFnormDistribution(ax[0],quantiles,Fnorm_GT,"blue",'lightcyan')
-    ax[0].legend(title="Groundtruth",title_fontproperties={"size":10,"weight":"bold"})
+    PlotFnormDistribution(ax[0],quantiles,Fnorm_GT,"blue",'cyan')
+    ax[0].legend(title="Groundtruth",title_fontproperties={"size":9,"weight":"bold"})
     ax[0].set_ylabel("Fres (N)")
     ax[0].set_xlabel("Increment")
 
     PlotFnormDistribution(ax[1],quantiles,Fnorm_ML,"red",'mistyrose')
-    ax[1].legend(title="Model",title_fontproperties={"size":10,"weight":"bold"})
+    ax[1].legend(title="Model",title_fontproperties={"size":9,"weight":"bold"})
     ax[1].set_xlabel("Increment")
     ax[0].set_ylim([0,1])
     return fig, ax
@@ -251,7 +251,7 @@ def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles,sharey=False):
 from Evaluation import GetWallStress
 from ML_functions import LearnedSimulator
 
-def PlotStressComparison(Rollout:Type[LearnedSimulator],dims:list=[0,1,2],plot_ml:bool=True):
+def PlotWallStressComparison(Rollout:Type[LearnedSimulator],dims:list=[0,1,2],plot_ml:bool=True):
 
     fig, axs_temp = plt.subplots(1,len(dims),figsize=(len(dims)*5,5),sharey=True)
     if len(dims) < 3:

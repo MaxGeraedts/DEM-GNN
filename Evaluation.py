@@ -12,7 +12,7 @@ from IPython.display import clear_output
 from ML_functions import RemovePushFromName
 class SaveLoadMNRF():
     def __init__(self,dataset_name,model_name):
-        dataset_path = os.path.join(os.getcwd(),"Models",dataset_name,)
+        dataset_path = os.path.join(os.getcwd(),"Models",dataset_name)
         model_path = os.path.join(dataset_path,RemovePushFromName(model_name))
         self.GT_path = os.path.join(dataset_path,'MNRF_GT.npy')
         self.ML_path = os.path.join(model_path,'MNRF_ML.npy')
@@ -148,7 +148,7 @@ def GetStressTensor(data,BC):
     return stress_tensor
 
 from Encoding import ConvertToDirected
-def GetInternalStressRollout(Rollout):
+def GetInternalStressRollout(datalist:list,bc_rollout):
     """Calculate internal stress tensor (Gauchy) for every timestep
 
     Args:
@@ -157,11 +157,10 @@ def GetInternalStressRollout(Rollout):
     Returns:
         array: [Timestep[3x3]]
     """
-    stress_evo = torch.zeros((Rollout.timesteps,3,3))
-    for t in range(Rollout.timesteps):
-        data = Rollout.GroundTruth[t]
-        data = ConvertToDirected(data.clone())
-        BC = Rollout.BC_rollout[t][0][:,:3]
+    stress_evo = torch.zeros((len(datalist),3,3))
+    for t in range(len(datalist)):
+        data = datalist[t]
+        BC = bc_rollout[t][0][:,:3]
         stress_evo[t] = GetStressTensor(data,BC)
     return stress_evo
 
