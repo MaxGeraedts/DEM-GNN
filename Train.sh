@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=N300_Training
-#SBATCH --output=./Jobs/N300-%j.log
+#SBATCH --job-name=N400Push_Training
+#SBATCH --output=./Jobs/N400Push-%j.log
 #SBATCH --partition=be.gpuresearch.q,tue.gpu.q
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
 #SBATCH --mem-per-gpu=32G
-#SBATCH --time=48:00:00
+#SBATCH --time=72:00:00
 #SBATCH --mail-user=m.geraedts1@student.tue.nl
 #SBATCH --mail-type=END
 

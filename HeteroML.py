@@ -484,7 +484,7 @@ class ForwardTrainHetero():
         if validate_eq is True: self.ValidateNoisyDataEquality()
 
         print(f"Training {self.dataset_name}_{self.model_ident}_Push{push_idx}")
-        trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,model_ident=f"{self.model_ident}_Push")    
+        trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,model_ident=f"{self.model_ident}_Push{push_idx}")    
         trainer.train_loop(self.dataset_train)
         SaveTrainingInfo(self.dataset_noisy,trainer)
 
