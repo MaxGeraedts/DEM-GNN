@@ -5,11 +5,11 @@ dataset_name    = 'N400_MonoNeo'
 model_ident     = 'Emb64_redo'
 retrain         = False
 overfit         = False
-force_reload    = True
+force_reload    = False
 
 batch_size      = 64
 lr              = 0.01
-epochs          = 500
+epochs          = 0
 
 push_forward_loops = 1
 push_forward_epochs = 500

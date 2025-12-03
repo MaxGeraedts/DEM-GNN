@@ -454,7 +454,7 @@ class ForwardTrainHetero():
         if push_idx == 0:
             model,msg = GetHeteroModel(self.dataset_name,self.model_ident,self.model_sfx,self.model_metadata)
         else:
-            model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push",self.model_sfx,self.model_metadata)
+            model,msg = GetHeteroModel(self.dataset_name,f"{self.model_ident}_Push{push_idx}",self.model_sfx,self.model_metadata)
 
         if msg != 'Loaded model':
             raise Exception('Failed to load pre-trained model')
@@ -467,8 +467,6 @@ class ForwardTrainHetero():
                                                 bundle_size=self.bundle_size,
                                                 model=model,
                                                 model_ident=self.model_ident,
-                                                overfit_sim_idx=self.dataset_clean.overfit_sim_idx,
-                                                overfit_time_idx=self.dataset_clean.overfit_time_idx,
                                                 push_forward_step_max=push_forward_step_max)
         
         data_list_clean = [data for data in self.dataset_clean]
@@ -617,7 +615,7 @@ def GetHeteroModel(dataset_name,model_ident,model_sfx=None,metadata=None,
                 ('particle', 'PW_contact', 'wallpoint'),
                 ('wallpoint', 'rev_PW_contact', 'particle')])
     
-    if model_name[-4:] == "Push":
+    if "Push" in model_name:
         model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name[:-5]}")
     else:
         model_path = os.path.join(os.getcwd(),"Models",dataset_name,model_name,f"{model_name}_{model_sfx}")
@@ -636,7 +634,7 @@ def GetHeteroModel(dataset_name,model_ident,model_sfx=None,metadata=None,
                              num_layers=settings["num_layers"])
         model.load_state_dict(torch.load(model_path))
         msg = "Loaded model"
-        print(f"{msg} {model_name}")
+        print(f"{msg} {model_name}_{model_sfx}")
     else: 
         msg = "No Trained model"
         print(msg)
