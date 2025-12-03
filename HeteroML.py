@@ -422,11 +422,12 @@ class TrainHetero():
 
 from ML_functions import Rescale
 class ForwardTrainHetero():
-    def __init__(self,dataset_name:str,model_ident:str,model_sfx:str,dataset_clean,batch_size:int,lr:float,epochs:int,bundle_size:int):
+    def __init__(self,dataset_name:str,model_ident:str,model_sfx:str,dataset_train_clean,dataset_val,batch_size:int,lr:float,epochs:int,bundle_size:int):
         self.dataset_name = dataset_name
         self.model_ident = model_ident
-        self.dataset_clean = dataset_clean
-        self.model_metadata = dataset_clean[0].metadata()
+        self.dataset_train_clean = dataset_train_clean
+        self.dataset_val = dataset_val
+        self.model_metadata = dataset_train_clean[0].metadata()
         self.bundle_size = bundle_size
         self.batch_size = batch_size
         self.lr = lr
@@ -436,7 +437,7 @@ class ForwardTrainHetero():
 
     def ValidateNoisyDataEquality(self):
         for data_noisy in self.dataset_noisy:
-            data_clean = self.dataset_clean[data_noisy.t.item()]
+            data_clean = self.dataset_train_clean[data_noisy.t.item()]
 
             if data_clean.t.item()!=data_noisy.t.item():
                 raise Exception('timestep does not match')
@@ -469,7 +470,7 @@ class ForwardTrainHetero():
                                                 model_ident=self.model_ident,
                                                 push_forward_step_max=push_forward_step_max)
         
-        data_list_clean = [data for data in self.dataset_clean]
+        data_list_clean = [data for data in self.dataset_train_clean]
         data_list_noisy = [data for data in self.dataset_noisy]
         dataset = InMemoryDataset()
         dataset.data, dataset.slices = dataset.collate(data_list_clean+data_list_noisy)
@@ -483,7 +484,7 @@ class ForwardTrainHetero():
 
         print(f"Training {self.dataset_name}_{self.model_ident}_Push{push_idx}")
         trainer = HeteroTrainer(model,self.batch_size,self.lr,self.epochs,self.dataset_name,model_ident=f"{self.model_ident}_Push{push_idx}")    
-        trainer.train_loop(self.dataset_train)
+        trainer.train_loop(self.dataset_train,self.dataset_val)
         SaveTrainingInfo(self.dataset_noisy,trainer)
 
 class HeteroConvEdge(torch.nn.Module):
