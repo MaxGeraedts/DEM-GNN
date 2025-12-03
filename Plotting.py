@@ -237,12 +237,12 @@ def PlotForceDistributionComparison(Fnorm_GT,Fnorm_ML,quantiles,sharey=False):
                 fontweight='bold',
                 fontsize=10)
     
-    PlotFnormDistribution(ax[0],quantiles,Fnorm_GT,"blue",'cyan')
+    PlotFnormDistribution(ax[0],quantiles,Fnorm_GT,"grey",'lightgray',linestyle='solid',lbl_suffix=' GT')
     ax[0].legend(title="Groundtruth",title_fontproperties={"size":9,"weight":"bold"})
     ax[0].set_ylabel("Fres (N)")
     ax[0].set_xlabel("Increment")
 
-    PlotFnormDistribution(ax[1],quantiles,Fnorm_ML,"red",'mistyrose')
+    PlotFnormDistribution(ax[1],quantiles,Fnorm_ML,"red",'mistyrose', linestyle=(0,(5,5)))
     ax[1].legend(title="Model",title_fontproperties={"size":9,"weight":"bold"})
     ax[1].set_xlabel("Increment")
     ax[0].set_ylim([0,1])
