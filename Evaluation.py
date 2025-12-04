@@ -1,5 +1,6 @@
 import torch
 import torch_geometric.transforms as T
+import statistics
 from tqdm import tqdm, trange
 import numpy as np
 import json
@@ -10,6 +11,27 @@ from Encoding import NumpyGroupby, ProjectPointsToHyperplane
 from IPython.display import clear_output
 
 from ML_functions import RemovePushFromName
+from Encoding import AggregateRawData
+
+class AverageDEMruntime(AggregateRawData):
+    def __init__(self, dataset_name, data_dir, packing:bool=True):
+        super().__init__(dataset_name, data_dir)
+        self.packing = packing
+    
+    def GetSimRuntime(self,sim_dir):
+        if self.packing is True:
+            start_file = os.path.join(sim_dir,'Pre-Jamming','data_material.dat')
+        else:
+            start_file = os.path.join(sim_dir,'data_material.dat') 
+        end_file = os.path.join(sim_dir,'Solution.txt')
+        t_start = os.path.getmtime(start_file)
+        t_end = os.path.getmtime(end_file)
+        return t_end-t_start
+    
+    def __call__(self):
+        runtimes = [self.GetSimRuntime(sim_dir) for sim_dir in tqdm(self.sim_dirs)]
+        return statistics.mean(runtimes),runtimes
+
 class SaveLoadMNRF():
     def __init__(self,dataset_name,model_name):
         dataset_path = os.path.join(os.getcwd(),"Models",dataset_name)

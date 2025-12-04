@@ -219,13 +219,13 @@ def PlotFres(Fsum_GT,Fsum_ML):
     plt.legend()
     return fig
 
-def PlotFnormDistribution(ax,quantiles,Fnorm,color,fillcolor,linestyle,lbl_suffix:str=None):
+def PlotFnormDistribution(ax,quantiles,Fnorm,color,fillcolor,linestyle,lbl_suffix:str=None,marker:str='None',markersize:int=None,mew:int=None):
     t = np.arange(Fnorm.shape[0])
     for i,quantile in enumerate(quantiles):
         quantmin  = np.percentile(Fnorm,quantile,1)
         quantmax = np.percentile(Fnorm,(100-quantile),1)
         if quantile == 50:
-            ax.plot(t,quantmin,'-',color=f"tab:{color}",label=f"Median{lbl_suffix}",linestyle=linestyle)
+            ax.plot(t,quantmin,'-',color=f"tab:{color}",label=f"Median{lbl_suffix}",linestyle=linestyle,marker=marker,markevery=10,markersize=markersize,mew=mew)
         else:
             ax.fill_between(x=t, y1=quantmin, y2=quantmax, alpha=0.2, color=fillcolor,label=f"Range{lbl_suffix}")
 

@@ -1,10 +1,11 @@
 from Encoding import AggregateRawData, save, GetDataDir
 from HeteroML import HeteroDEMDataset
-import os
+from Evaluation import AverageDEMruntime
 dataset = False
-aggregate = True
+aggregate = False
+time = True
 
-dataset_name = r"N400_MonoNeo"
+dataset_name = r"2Sphere"
 data_dir = GetDataDir()
 
 if aggregate == True:
@@ -19,3 +20,8 @@ if aggregate == True:
 
 if dataset == True:
     HeteroDEMDataset(dataset_name,force_reload=True)
+
+if time ==True:
+    runtime = AverageDEMruntime(dataset_name,data_dir,packing=False)
+    mean_runtime, runtimes =runtime()
+    print(mean_runtime)
